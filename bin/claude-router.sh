@@ -92,16 +92,21 @@ reply() {
   fi
 }
 
-# pushover_notify <title> <message> [priority]
+# pushover_notify <title> <message> [priority] [deep_link]
 #   Send a Pushover ping IF scrape-collection's pushover.py is on disk.
-#   Used for failure surfaces (no-match, launch error, kill-switch hit) so
-#   the user sees something on their phone even when iMessage reply is
-#   silent or filtered out. Silent no-op if the helper isn't present.
+#   Used for failure + success surfaces. `deep_link` defaults to
+#   claude://code/ which makes the notification's tap target jump
+#   straight into the Claude iOS app's Code tab. Pass an empty string
+#   to suppress the tap target. Silent no-op if the helper isn't present.
 pushover_notify() {
-  local title="$1" message="$2" priority="${3:-0}"
+  local title="$1" message="$2" priority="${3:-0}" deep_link="${4:-claude://code/}"
   local helper="$HOME/Documents/scrape-collection/scripts/orchestrator/pushover.py"
   if [ -f "$helper" ]; then
-    python3 "$helper" --title "$title" --message "$message" --priority "$priority" >>"$LOG_FILE" 2>&1 || true
+    if [ -n "$deep_link" ]; then
+      python3 "$helper" --title "$title" --message "$message" --priority "$priority" --url "$deep_link" --url-title "Open Claude iOS" >>"$LOG_FILE" 2>&1 || true
+    else
+      python3 "$helper" --title "$title" --message "$message" --priority "$priority" >>"$LOG_FILE" 2>&1 || true
+    fi
   fi
 }
 
@@ -252,5 +257,6 @@ case "$PLATFORM" in
     ;;
 esac
 
-reply "Session started in $slug. Open the Claude app to continue."
+reply "Session started in $slug. Open Claude iOS: claude://code/"
+pushover_notify "Claude session: $slug" "Started in $path. Tap below to open Claude iOS." 0 "claude://code/"
 log "launched: $slug at $path"
