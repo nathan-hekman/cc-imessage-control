@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "cc-remote-control",
-  "description": "Text yourself 'Claude <projectname>' and your Mac (iMessage) or Linux box (Signal) opens a new local Claude Code session in that project with /remote-control on, ready to drive from the Claude mobile app. No chat.db reading.",
+  "description": "Text yourself 'Claude <projectname>' OR 'skill <command>' and your Mac (iMessage) or Linux box opens a new local Claude Code session with /remote-control on. 'Claude' mode opens the project; 'skill' mode runs a plugin's slash command in its project dir. Drive both from the Claude mobile app. No chat.db reading.",
   "owner": {
     "name": "Nathan Hekman",
     "url": "https://github.com/nathan-hekman"
@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "cc-remote-control",
-      "version": "0.4.0",
-      "description": "Spin up Claude Code Remote Control sessions on your Mac (via iMessage Shortcuts) or Linux box (via signal-cli). Ships router scripts plus an interactive setup wizard.",
+      "version": "0.5.0",
+      "description": "Spin up Claude Code Remote Control sessions on your Mac (via iMessage Shortcuts) or Linux box (via signal-cli). Two keywords: 'Claude <project>' opens a project; 'skill <phrase>' fires a plugin slash command. Ships router scripts plus an interactive setup wizard.",
       "source": "./",
       "category": "productivity"
     }

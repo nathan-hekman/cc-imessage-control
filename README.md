@@ -51,11 +51,36 @@ set up.
 
 ## Day-to-day
 
+Two keywords. One Shortcut.
+
+**`Claude <project>`** — opens a fresh Claude Code session in that
+project dir.
+
 | You text          | Machine opens                      |
 |-------------------|------------------------------------|
 | `Claude eBay`     | `~/Documents/ebay-scrape-new`      |
 | `Claude scraper`  | `~/Documents/cy-scraper-new`       |
 | `Claude` (alone)  | macOS texts a project menu; Linux logs a menu |
+
+**`skill <phrase>`** — opens a fresh session AND fires a plugin slash
+command in that plugin's project dir. The session is doing real work
+the instant it opens.
+
+| You text                | Session opens                                                  |
+|-------------------------|----------------------------------------------------------------|
+| `skill update fin`      | `~/Documents/scrape-collection`, runs `/update-financials`     |
+| `skill courtyard`       | `~/Documents/scrape-collection`, runs `/cy-vault-ship`         |
+| `skill morning`         | `~/Documents/scrape-collection`, runs `/morning-deals-headline`|
+| `skill daily summary`   | `~/Documents/scrape-collection`, runs `/daily-collection-summary` |
+
+Both keywords route through the same `bin/claude-router.sh`, which
+dispatches `skill` → `bin/skill-router.sh`. Use ONE Shortcut whose
+iMessage filter matches "Claude" OR "skill" — point its shell-script
+step at `bin/claude-router.sh "$1"` and you're done.
+
+To add a `skill` keyword for your own plugin's command, edit
+`CMD_NAMES`, `CMD_DIRS`, and `alias_to_cmd()` in
+[`bin/skill-router.sh`](bin/skill-router.sh).
 
 New project? Just `mkdir` it under your projects root. No config change.
 

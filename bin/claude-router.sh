@@ -112,6 +112,17 @@ case "$msg" in
     ;;
 esac
 
+# Keyword dispatch: if the message starts with "skill" (case-insensitive),
+# hand off to skill-router.sh, which resolves slash commands instead of
+# project dirs. This lets a single Siri Shortcut handle both keywords —
+# filter for "claude OR skill" and point its shell-script action here.
+case "$msg" in
+  [Ss][Kk][Ii][Ll][Ll]\ *|[Ss][Kk][Ii][Ll][Ll],*|[Ss][Kk][Ii][Ll][Ll]:*|[Ss][Kk][Ii][Ll][Ll].*|[Ss][Kk][Ii][Ll][Ll]-*)
+    log "keyword 'skill' detected → dispatching to skill-router.sh"
+    exec "$PROJECT_DIR/bin/skill-router.sh" "$msg"
+    ;;
+esac
+
 # Strip leading "Claude" / "claude" (case-insensitive) plus trailing
 # punctuation/whitespace.
 phrase=$(printf '%s' "$msg" \

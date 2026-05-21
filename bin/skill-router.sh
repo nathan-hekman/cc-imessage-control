@@ -1,0 +1,290 @@
+#!/bin/bash
+# skill-router.sh — "skill <phrase>" iMessage entry point for cc-remote-control.
+#
+# Companion to claude-router.sh, but resolves the inbound phrase to a SLASH
+# COMMAND (not a project dir). Opens a new Terminal.app window cwd'd at the
+# owning plugin's project dir, running `claude --remote-control <slug>
+# "/<command>"` so the new session shows up in the iOS Claude app instantly
+# and is doing real work on open.
+#
+# Called by:
+#   - macOS: Shortcuts "Run Shell Script" action when an incoming iMessage
+#     starts with "skill". Either:
+#       (a) directly, with $1 = the message body, OR
+#       (b) via claude-router.sh's keyword dispatcher (claude-router.sh
+#           detects the "skill" prefix and exec's this script).
+#   - Linux: bin/cc_remote_listen.py HTTP listener (same dispatch path).
+#
+# Why a separate script: claude-router.sh resolves to a PROJECT
+# (build_project_list.sh / infer_project.sh) and starts a generic Claude
+# session there. This router resolves to a SLASH COMMAND from an installed
+# plugin's commands/ directory and bakes the slash-command invocation
+# into the launch line.
+#
+# Compatibility: written for /bin/bash 3.2 (macOS default — Shortcuts uses
+# this shell). No associative arrays.
+#
+# Flags:
+#   --dry-run   Resolve and print the launch command; do NOT open Terminal
+#               and do NOT send confirmation. For offline testing.
+#
+# Extending: edit CMD_NAMES + CMD_DIRS + alias_to_cmd() below to add commands
+# from other plugins. A future version may scan
+# ~/.claude/plugins/cache/*/*/commands/*.md and ~/.claude/settings.json's
+# extraKnownMarketplaces for source paths automatically.
+
+set -uo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+LOG_DIR="${CC_REMOTE_LOG_DIR:-${CC_IMESSAGE_LOG_DIR:-$CLAUDE_DIR/.cc-remote-logs}}"
+mkdir -p "$LOG_DIR" 2>/dev/null || LOG_DIR="$PROJECT_DIR/logs" && mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/skill-router.log"
+
+# Non-interactive shells (Shortcuts on macOS, systemd on Linux) don't load
+# the user's .zshrc/.bashrc. Make `claude` findable.
+export PATH="$HOME/.local/bin:$HOME/.claude/local:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
+}
+
+# Load config (same precedence as claude-router.sh).
+load_env() {
+  local f="$1"
+  [ -f "$f" ] || return 1
+  set -a
+  # shellcheck disable=SC1090
+  source "$f"
+  set +a
+  return 0
+}
+if [ -n "${CC_REMOTE_ENV:-}" ] && load_env "$CC_REMOTE_ENV"; then :
+elif [ -n "${CC_IMESSAGE_ENV:-}" ] && load_env "$CC_IMESSAGE_ENV"; then :
+elif load_env "$CLAUDE_DIR/.cc-remote-env"; then :
+elif load_env "$CLAUDE_DIR/.cc-imessage-env"; then :
+elif load_env "$PROJECT_DIR/.env"; then :
+fi
+
+PREFIX="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[CR]}}"
+SEND="$PROJECT_DIR/bin/imessage_send.sh"
+PLATFORM="$(uname)"
+
+# reply <msg> — send an iMessage back on macOS; no-op elsewhere.
+reply() {
+  if [ "$PLATFORM" = "Darwin" ] && [ -x "$SEND" ]; then
+    "$SEND" "$1" >>"$LOG_FILE" 2>&1 || true
+  else
+    log "reply (skipped, non-Darwin or no sender): $1"
+  fi
+}
+
+# -------------------------------------------------------------------- registry
+#
+# CMD_NAMES + CMD_DIRS: parallel arrays mapping each slash command Nathan
+# has wired up here to the directory `claude` should cwd to when it fires.
+#
+# To add a new command from another plugin:
+#   1. Append its canonical kebab-case name to CMD_NAMES.
+#   2. Append the matching project dir (where you want `claude` to cwd) to
+#      CMD_DIRS at the same index.
+#   3. Add aliases in alias_to_cmd() below.
+
+CMD_NAMES=(
+  "update-financials"
+  "daily-collection-summary"
+  "morning-deals-headline"
+  "cy-vault-ship"
+)
+CMD_DIRS=(
+  "$HOME/Documents/scrape-collection"
+  "$HOME/Documents/scrape-collection"
+  "$HOME/Documents/scrape-collection"
+  "$HOME/Documents/scrape-collection"
+)
+
+# Pure-function alias map. Returns canonical command name or empty string.
+alias_to_cmd() {
+  case "$1" in
+    "financials"|"update financials"|"update fin"|"fin"|"do financials"|"run financials")
+      echo "update-financials" ;;
+    "collection"|"daily"|"daily collection"|"daily summary"|"collection summary"|"daily collection summary"|"review collection"|"review my collection")
+      echo "daily-collection-summary" ;;
+    "morning"|"morning deals"|"morning report"|"morning headline"|"deals headline"|"morning deals headline")
+      echo "morning-deals-headline" ;;
+    "cy"|"vault"|"cy vault"|"cy ship"|"vault ship"|"cy vault ship"|"courtyard"|"courtyard ship"|"courtyard vault"|"ship cy")
+      echo "cy-vault-ship" ;;
+    *)
+      echo "" ;;
+  esac
+}
+
+cmd_index() {
+  local needle="$1"
+  local i=0
+  for cmd in "${CMD_NAMES[@]}"; do
+    if [ "$cmd" = "$needle" ]; then
+      echo "$i"
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  echo "-1"
+}
+
+# -------------------------------------------------------------------- input
+DRY_RUN=0
+if [ "${1:-}" = "--dry-run" ]; then
+  DRY_RUN=1
+  shift
+fi
+
+raw_input="${1:-}"
+# Fall back to stdin if the caller piped input.
+if [ -z "$raw_input" ] && [ ! -t 0 ]; then
+  raw_input="$(cat)"
+fi
+log "Received: '$raw_input' (dry_run=$DRY_RUN)"
+
+if [ -z "$raw_input" ]; then
+  log "ERROR: no input"
+  reply "${PREFIX} skill router: no input from Shortcut."
+  exit 1
+fi
+
+# Loop avoidance: ignore replies that came from us.
+case "$raw_input" in
+  "$PREFIX"*)
+    log "ignored: matches reply prefix"
+    exit 0
+    ;;
+esac
+
+# Strip leading "skill" keyword (case-insensitive), tolerating punctuation.
+phrase="$(echo "$raw_input" | sed -E 's/^[[:space:]]*[Ss][Kk][Ii][Ll][Ll][[:space:],:.-]+//')"
+phrase_norm="$(echo "$phrase" | tr '[:upper:]' '[:lower:]' | tr -s ' ' | sed -E 's/^ +//; s/ +$//')"
+log "Phrase after strip: '$phrase_norm'"
+
+if [ -z "$phrase_norm" ]; then
+  available="$(printf '%s, ' "${CMD_NAMES[@]}" | sed 's/, $//')"
+  reply "${PREFIX} skill router: nothing followed 'skill'. Try: $available"
+  exit 1
+fi
+
+# -------------------------------------------------------------------- match
+match=""
+
+alias_hit="$(alias_to_cmd "$phrase_norm")"
+if [ -n "$alias_hit" ]; then
+  match="$alias_hit"
+  log "Alias hit: '$phrase_norm' -> '$match'"
+fi
+
+if [ -z "$match" ]; then
+  for cmd in "${CMD_NAMES[@]}"; do
+    cmd_words="$(echo "$cmd" | tr '-' ' ')"
+    if [ "$phrase_norm" = "$cmd" ] || [ "$phrase_norm" = "$cmd_words" ]; then
+      match="$cmd"
+      log "Exact-name hit: '$phrase_norm' -> '$match'"
+      break
+    fi
+  done
+fi
+
+if [ -z "$match" ]; then
+  best_score=0
+  best_cmd=""
+  for cmd in "${CMD_NAMES[@]}"; do
+    cmd_words="$(echo "$cmd" | tr '-' ' ')"
+    score=0
+    for word in $phrase_norm; do
+      if [ ${#word} -lt 3 ]; then continue; fi
+      if echo " $cmd_words " | grep -qi " $word "; then
+        score=$((score + 1))
+      fi
+    done
+    if [ "$score" -gt "$best_score" ]; then
+      best_score=$score
+      best_cmd=$cmd
+    fi
+  done
+  if [ -n "$best_cmd" ] && [ "$best_score" -gt 0 ]; then
+    match="$best_cmd"
+    log "Fuzzy hit (score=$best_score): '$phrase_norm' -> '$match'"
+  fi
+fi
+
+if [ -z "$match" ]; then
+  log "ERROR: no command matched '$phrase_norm'"
+  available="$(printf '%s, ' "${CMD_NAMES[@]}" | sed 's/, $//')"
+  reply "${PREFIX} skill router: no command matched '$phrase'. Available: $available"
+  exit 1
+fi
+
+# -------------------------------------------------------------------- launch
+idx="$(cmd_index "$match")"
+project_dir="${CMD_DIRS[$idx]}"
+
+if [ ! -d "$project_dir" ]; then
+  log "ERROR: project dir missing for $match: $project_dir"
+  reply "${PREFIX} skill router: project dir not found for /$match — $project_dir"
+  exit 1
+fi
+
+slug="${match}-$(date +%Y%m%d-%H%M%S)"
+launch_cmd="cd \"$project_dir\" && claude --remote-control \"$slug\" \"/$match\""
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  log "DRY-RUN: would launch: $launch_cmd"
+  echo "would-launch: $launch_cmd"
+  exit 0
+fi
+
+log "Launching: $launch_cmd"
+
+launch_macos() {
+  local title="skill — $match"
+  local escaped
+  escaped="$(echo "$launch_cmd" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+  osascript >/dev/null 2>&1 <<APPLESCRIPT
+tell application "Terminal"
+    activate
+    set newTab to do script "${escaped}"
+    delay 0.3
+    set custom title of newTab to "${title}"
+end tell
+APPLESCRIPT
+}
+
+launch_linux() {
+  local cmd="$launch_cmd; exec \${SHELL:-bash}"
+  if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    if command -v tmux >/dev/null 2>&1; then
+      tmux new-session -d -s "$slug" -c "$project_dir" "claude --remote-control \"$slug\" \"/$match\""
+      return 0
+    fi
+    return 1
+  fi
+  for term in x-terminal-emulator gnome-terminal konsole tilix kitty alacritty xterm; do
+    if command -v "$term" >/dev/null 2>&1; then
+      case "$term" in
+        gnome-terminal)   "$term" -- bash -c "$cmd" >/dev/null 2>&1 & ;;
+        konsole|tilix)    "$term" -e bash -c "$cmd" >/dev/null 2>&1 & ;;
+        kitty|alacritty)  "$term" -e bash -c "$cmd" >/dev/null 2>&1 & ;;
+        xterm|x-terminal-emulator) "$term" -e "bash -c '$cmd'" >/dev/null 2>&1 & ;;
+      esac
+      return 0
+    fi
+  done
+  return 1
+}
+
+case "$PLATFORM" in
+  Darwin) launch_macos ;;
+  Linux)  launch_linux || { log "ERROR: linux launch failed"; reply "${PREFIX} skill router: terminal launch failed"; exit 1; } ;;
+  *)      log "ERROR: unsupported platform $PLATFORM"; reply "${PREFIX} skill router: unsupported platform"; exit 1 ;;
+esac
+
+reply "${PREFIX} skill /$match firing. Session: $slug. Open Claude on iOS."
+log "Launched OK: slug=$slug match=$match"
