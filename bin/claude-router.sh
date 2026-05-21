@@ -104,6 +104,16 @@ if [ -z "$msg" ]; then
   exit 0
 fi
 
+# Master kill-switch. `/cc-remote-control off` creates this file; `on`
+# removes it. Skip ALL processing when present so neither claude-router
+# nor skill-router fire.
+DISABLE_FLAG="$CLAUDE_DIR/.cc-remote-disabled"
+if [ -f "$DISABLE_FLAG" ]; then
+  log "ignored: cc-remote-control is OFF (flag at $DISABLE_FLAG)"
+  reply "cc-remote-control is OFF — run /cc-remote-control on to re-enable"
+  exit 0
+fi
+
 # Loop avoidance: ignore any message that starts with our reply prefix.
 case "$msg" in
   "$PREFIX"*)

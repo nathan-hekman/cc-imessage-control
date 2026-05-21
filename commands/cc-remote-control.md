@@ -1,15 +1,17 @@
 ---
-description: "cc-remote-control controls — interactive setup wizard, status, test ping, log tail. Usage: /cc-remote-control setup | status | test | tail | help."
-argument-hint: "setup | status | test [phrase] | tail | help"
+description: "cc-remote-control controls — setup wizard, status, on/off toggle, test ping, log tail. Usage: /cc-remote-control setup | status | on | off | test | tail | help."
+argument-hint: "setup | status | on | off | test [phrase] | tail | help"
 ---
 
 Interpret `$ARGUMENTS` as follows. Match exactly — do not be creative.
 
 If `$ARGUMENTS` is empty or `help`:
-- Print a one-line summary of the four sub-commands and stop. Do not invoke any skill.
+- Print a one-line summary of all sub-commands and stop. Do not invoke any skill.
   ```
   /cc-remote-control setup   → interactive setup wizard
-  /cc-remote-control status  → show config, log path, last few log lines
+  /cc-remote-control status  → show config, on/off state, log path, last few log lines
+  /cc-remote-control on      → re-enable iMessage routing (delete the disable flag)
+  /cc-remote-control off     → disable iMessage routing (create ~/.claude/.cc-remote-disabled)
   /cc-remote-control test    → run the router locally with a test phrase
   /cc-remote-control tail    → tail the live router log
   ```
@@ -26,6 +28,9 @@ If `$ARGUMENTS` is `status`:
 - Run `bash "${CLAUDE_PLUGIN_ROOT}/bin/build_project_list.sh"` and show
   the user a clean table of slug → path so they can see which projects
   are reachable. Also show:
+  - **enabled state**: report whether `~/.claude/.cc-remote-disabled`
+    exists. If present, "DISABLED — routers exit silently". If absent,
+    "ENABLED — routers active".
   - whether `~/.claude/.cc-remote-env` exists (and its `REPLY_TARGET` /
     `REPLY_PREFIX` / `ROUTER_MODEL` values, with the phone number
     masked except the last 4 digits). On Linux, also surface
@@ -35,11 +40,34 @@ If `$ARGUMENTS` is `status`:
   - the absolute path of `claude-router.sh` (i.e. the line on macOS
     Shortcuts, or the ExecStart= path on Linux systemd)
 
+If `$ARGUMENTS` is `off`:
+- Create the disable flag:
+  ```bash
+  touch ~/.claude/.cc-remote-disabled
+  echo "Disabled at $(date)" > ~/.claude/.cc-remote-disabled
+  ```
+- Both `claude-router.sh` and `skill-router.sh` check for this file
+  early and exit silently with a "[cc-rc] cc-remote-control is OFF —
+  run /cc-remote-control on to re-enable" reply iMessage.
+- Confirm to the user: "cc-remote-control is now OFF. Incoming
+  `Claude <project>` and `skill <phrase>` texts will be ignored."
+
+If `$ARGUMENTS` is `on`:
+- Remove the disable flag:
+  ```bash
+  rm -f ~/.claude/.cc-remote-disabled
+  ```
+- Confirm to the user: "cc-remote-control is now ON. Texting
+  `Claude <project>` or `skill <phrase>` will fire normally."
+
 If `$ARGUMENTS` is `test` or `test <phrase>`:
 - Default phrase if missing: `Claude help`.
 - Run `bash "${CLAUDE_PLUGIN_ROOT}/bin/claude-router.sh" "<phrase>"` in
   a Bash tool call and report what happened. Surface the log delta
   produced by this run (`tail -5 ~/.claude/.cc-remote-logs/router.log`).
+- For testing the `skill` path: use `bash
+  "${CLAUDE_PLUGIN_ROOT}/bin/skill-router.sh" --dry-run "<phrase>"` so
+  no real Terminal session spawns.
 - Do not generate a TLDR or HTML one-pager for status/test/tail output
   — these are operational commands.
 

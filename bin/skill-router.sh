@@ -153,6 +153,16 @@ if [ -z "$raw_input" ]; then
   exit 1
 fi
 
+# Master kill-switch. `/cc-remote-control off` creates this file; `on`
+# removes it. Skip processing when present. (Skip the check in dry-run
+# so testing still resolves matches.)
+DISABLE_FLAG="$CLAUDE_DIR/.cc-remote-disabled"
+if [ "$DRY_RUN" -eq 0 ] && [ -f "$DISABLE_FLAG" ]; then
+  log "ignored: cc-remote-control is OFF (flag at $DISABLE_FLAG)"
+  reply "cc-remote-control is OFF — run /cc-remote-control on to re-enable"
+  exit 0
+fi
+
 # Loop avoidance: ignore replies that came from us.
 case "$raw_input" in
   "$PREFIX"*)
