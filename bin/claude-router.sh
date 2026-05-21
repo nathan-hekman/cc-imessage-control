@@ -92,6 +92,19 @@ reply() {
   fi
 }
 
+# pushover_notify <title> <message> [priority]
+#   Send a Pushover ping IF scrape-collection's pushover.py is on disk.
+#   Used for failure surfaces (no-match, launch error, kill-switch hit) so
+#   the user sees something on their phone even when iMessage reply is
+#   silent or filtered out. Silent no-op if the helper isn't present.
+pushover_notify() {
+  local title="$1" message="$2" priority="${3:-0}"
+  local helper="$HOME/Documents/scrape-collection/scripts/orchestrator/pushover.py"
+  if [ -f "$helper" ]; then
+    python3 "$helper" --title "$title" --message "$message" --priority "$priority" >>"$LOG_FILE" 2>&1 || true
+  fi
+}
+
 msg="${1:-}"
 # Fall back to stdin if the caller piped input rather than passing argv.
 if [ -z "$msg" ] && [ ! -t 0 ]; then
@@ -111,6 +124,7 @@ DISABLE_FLAG="$CLAUDE_DIR/.cc-remote-disabled"
 if [ -f "$DISABLE_FLAG" ]; then
   log "ignored: cc-remote-control is OFF (flag at $DISABLE_FLAG)"
   reply "cc-remote-control is OFF — run /cc-remote-control on to re-enable"
+  pushover_notify "cc-remote-control OFF — text ignored" "Got: '$msg'. Run /cc-remote-control on to re-enable." 0
   exit 0
 fi
 
@@ -153,6 +167,7 @@ log "infer → $slug"
 if [ -z "$slug" ] || [ "$slug" = "NONE" ]; then
   available=$("$LIST" | cut -d'|' -f1 | head -10 | paste -sd, -)
   reply "Couldn't match '$phrase'. Try: $available"
+  pushover_notify "Claude router: no project match" "Got '$phrase'. Tried: $available" 0
   exit 0
 fi
 
@@ -160,6 +175,7 @@ path=$("$LIST" | awk -F'|' -v s="$slug" '$1==s {print $2; exit}')
 if [ -z "$path" ]; then
   reply "Matched '$slug' but no path found. Check build_project_list.sh."
   log "ERROR: no path for slug $slug"
+  pushover_notify "Claude router: slug-to-path failed" "Matched '$slug' but build_project_list.sh did not return a path." 0
   exit 1
 fi
 

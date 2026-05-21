@@ -80,6 +80,19 @@ reply() {
   fi
 }
 
+# pushover_notify <title> <message> [priority]
+#   Send a Pushover ping IF scrape-collection's pushover.py is on disk.
+#   Used for failure surfaces so the user sees something on their phone
+#   even when iMessage reply is silent or filtered. Silent no-op if the
+#   helper isn't present.
+pushover_notify() {
+  local title="$1" message="$2" priority="${3:-0}"
+  local helper="$HOME/Documents/scrape-collection/scripts/orchestrator/pushover.py"
+  if [ -f "$helper" ]; then
+    python3 "$helper" --title "$title" --message "$message" --priority "$priority" >>"$LOG_FILE" 2>&1 || true
+  fi
+}
+
 # -------------------------------------------------------------------- registry
 #
 # CMD_NAMES + CMD_DIRS: parallel arrays mapping each slash command Nathan
@@ -160,6 +173,7 @@ DISABLE_FLAG="$CLAUDE_DIR/.cc-remote-disabled"
 if [ "$DRY_RUN" -eq 0 ] && [ -f "$DISABLE_FLAG" ]; then
   log "ignored: cc-remote-control is OFF (flag at $DISABLE_FLAG)"
   reply "cc-remote-control is OFF — run /cc-remote-control on to re-enable"
+  pushover_notify "cc-remote-control OFF — text ignored" "Got: '$raw_input'. Run /cc-remote-control on to re-enable." 0
   exit 0
 fi
 
@@ -229,6 +243,7 @@ if [ -z "$match" ]; then
   log "ERROR: no command matched '$phrase_norm'"
   available="$(printf '%s, ' "${CMD_NAMES[@]}" | sed 's/, $//')"
   reply "skill router: no command matched '$phrase'. Available: $available"
+  pushover_notify "skill router: no match" "Got 'skill $phrase'. Tried these: $available" 0
   exit 1
 fi
 
@@ -239,6 +254,7 @@ project_dir="${CMD_DIRS[$idx]}"
 if [ ! -d "$project_dir" ]; then
   log "ERROR: project dir missing for $match: $project_dir"
   reply "skill router: project dir not found for /$match — $project_dir"
+  pushover_notify "skill router: project dir missing" "/$match needs $project_dir but it doesn't exist." 0
   exit 1
 fi
 
@@ -292,8 +308,20 @@ launch_linux() {
 
 case "$PLATFORM" in
   Darwin) launch_macos ;;
-  Linux)  launch_linux || { log "ERROR: linux launch failed"; reply "skill router: terminal launch failed"; exit 1; } ;;
-  *)      log "ERROR: unsupported platform $PLATFORM"; reply "skill router: unsupported platform"; exit 1 ;;
+  Linux)
+    if ! launch_linux; then
+      log "ERROR: linux launch failed"
+      reply "skill router: terminal launch failed"
+      pushover_notify "skill router: terminal launch failed" "/$match couldn't open a terminal on this Linux box." 0
+      exit 1
+    fi
+    ;;
+  *)
+    log "ERROR: unsupported platform $PLATFORM"
+    reply "skill router: unsupported platform"
+    pushover_notify "skill router: unsupported platform" "Got platform '$PLATFORM' — only macOS + Linux supported." 0
+    exit 1
+    ;;
 esac
 
 reply "skill /$match firing. Session: $slug. Open Claude on iOS."
