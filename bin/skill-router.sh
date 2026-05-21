@@ -67,7 +67,7 @@ elif load_env "$CLAUDE_DIR/.cc-imessage-env"; then :
 elif load_env "$PROJECT_DIR/.env"; then :
 fi
 
-PREFIX="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[CR]}}"
+PREFIX="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[cc-rc]}}"
 SEND="$PROJECT_DIR/bin/imessage_send.sh"
 PLATFORM="$(uname)"
 
@@ -149,7 +149,7 @@ log "Received: '$raw_input' (dry_run=$DRY_RUN)"
 
 if [ -z "$raw_input" ]; then
   log "ERROR: no input"
-  reply "${PREFIX} skill router: no input from Shortcut."
+  reply "skill router: no input from Shortcut."
   exit 1
 fi
 
@@ -168,7 +168,7 @@ log "Phrase after strip: '$phrase_norm'"
 
 if [ -z "$phrase_norm" ]; then
   available="$(printf '%s, ' "${CMD_NAMES[@]}" | sed 's/, $//')"
-  reply "${PREFIX} skill router: nothing followed 'skill'. Try: $available"
+  reply "skill router: nothing followed 'skill'. Try: $available"
   exit 1
 fi
 
@@ -218,7 +218,7 @@ fi
 if [ -z "$match" ]; then
   log "ERROR: no command matched '$phrase_norm'"
   available="$(printf '%s, ' "${CMD_NAMES[@]}" | sed 's/, $//')"
-  reply "${PREFIX} skill router: no command matched '$phrase'. Available: $available"
+  reply "skill router: no command matched '$phrase'. Available: $available"
   exit 1
 fi
 
@@ -228,7 +228,7 @@ project_dir="${CMD_DIRS[$idx]}"
 
 if [ ! -d "$project_dir" ]; then
   log "ERROR: project dir missing for $match: $project_dir"
-  reply "${PREFIX} skill router: project dir not found for /$match — $project_dir"
+  reply "skill router: project dir not found for /$match — $project_dir"
   exit 1
 fi
 
@@ -282,9 +282,9 @@ launch_linux() {
 
 case "$PLATFORM" in
   Darwin) launch_macos ;;
-  Linux)  launch_linux || { log "ERROR: linux launch failed"; reply "${PREFIX} skill router: terminal launch failed"; exit 1; } ;;
-  *)      log "ERROR: unsupported platform $PLATFORM"; reply "${PREFIX} skill router: unsupported platform"; exit 1 ;;
+  Linux)  launch_linux || { log "ERROR: linux launch failed"; reply "skill router: terminal launch failed"; exit 1; } ;;
+  *)      log "ERROR: unsupported platform $PLATFORM"; reply "skill router: unsupported platform"; exit 1 ;;
 esac
 
-reply "${PREFIX} skill /$match firing. Session: $slug. Open Claude on iOS."
+reply "skill /$match firing. Session: $slug. Open Claude on iOS."
 log "Launched OK: slug=$slug match=$match"

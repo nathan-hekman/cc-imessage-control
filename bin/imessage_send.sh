@@ -15,7 +15,7 @@ if [ -z "$target" ]; then
   echo "REPLY_TARGET (or legacy IMESSAGE_TARGET) env var required" >&2
   exit 1
 fi
-prefix="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[CR]}}"
+prefix="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[cc-rc]}}"
 body="$1"
 full="${prefix} ${body}"
 

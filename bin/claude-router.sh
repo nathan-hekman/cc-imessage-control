@@ -80,7 +80,7 @@ fi
 SEND="$PROJECT_DIR/bin/imessage_send.sh"
 INFER="$PROJECT_DIR/bin/infer_project.sh"
 LIST="$PROJECT_DIR/bin/build_project_list.sh"
-PREFIX="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[CR]}}"
+PREFIX="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[cc-rc]}}"
 PLATFORM="$(uname)"
 
 # reply <msg> — only sends on macOS; no-op on Linux.
