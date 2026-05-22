@@ -1,13 +1,13 @@
 {
-  "name": "cc-remote-control",
-  "version": "0.7.0",
+  "name": "cc-imessage-control",
+  "version": "0.8.0",
   "description": "Text yourself 'Claude <projectname>' OR 'skill <command>'. Your Mac (iMessage) or Linux box opens a new local Claude Code session with /remote-control enabled — 'Claude' mode opens the project; 'skill' mode runs a plugin's slash command in its project dir. Drive both from the Claude mobile app. No chat.db reading.",
   "author": {
     "name": "Nathan Hekman",
     "url": "https://github.com/nathan-hekman"
   },
-  "homepage": "https://github.com/nathan-hekman/cc-remote-control",
-  "repository": "https://github.com/nathan-hekman/cc-remote-control",
+  "homepage": "https://github.com/nathan-hekman/cc-imessage-control",
+  "repository": "https://github.com/nathan-hekman/cc-imessage-control",
   "license": "MIT",
   "keywords": ["imessage", "signal", "remote-control", "shortcuts", "macos", "linux", "mobile", "ios", "haiku"],
   "hooks": {
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/cc-remote-update-check.js\" >/dev/null 2>&1 &",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/cc-imessage-update-check.js\" >/dev/null 2>&1 &",
             "timeout": 2
           }
         ]

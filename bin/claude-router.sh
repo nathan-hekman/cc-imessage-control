@@ -1,11 +1,11 @@
 #!/bin/bash
-# claude-router.sh — the main entry point for cc-remote-control.
+# claude-router.sh — the main entry point for cc-imessage-control.
 #
 # Called by:
 #   - macOS: Shortcuts "Run Shell Script" action when an incoming iMessage
 #     from you matches the keyword filter. Shortcuts passes the message
 #     body as $1.
-#   - Linux: bin/cc_remote_listen.py HTTP listener when it receives a
+#   - Linux: bin/cc_imessage_listen.py HTTP listener when it receives a
 #     POST /trigger with the message body. Listener invokes this script
 #     with the body as $1.
 #
@@ -122,14 +122,14 @@ if [ -z "$msg" ]; then
   exit 0
 fi
 
-# Master kill-switch. `/cc-remote-control off` creates this file; `on`
+# Master kill-switch. `/cc-imessage-control off` creates this file; `on`
 # removes it. Skip ALL processing when present so neither claude-router
 # nor skill-router fire.
 DISABLE_FLAG="$CLAUDE_DIR/.cc-remote-disabled"
 if [ -f "$DISABLE_FLAG" ]; then
-  log "ignored: cc-remote-control is OFF (flag at $DISABLE_FLAG)"
-  reply "cc-remote-control is OFF — run /cc-remote-control on to re-enable"
-  pushover_notify "cc-remote-control OFF — text ignored" "Got: '$msg'. Run /cc-remote-control on to re-enable." 0
+  log "ignored: cc-imessage-control is OFF (flag at $DISABLE_FLAG)"
+  reply "cc-imessage-control is OFF — run /cc-imessage-control on to re-enable"
+  pushover_notify "cc-imessage-control OFF — text ignored" "Got: '$msg'. Run /cc-imessage-control on to re-enable." 0
   exit 0
 fi
 

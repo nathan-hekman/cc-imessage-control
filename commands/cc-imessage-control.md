@@ -1,5 +1,5 @@
 ---
-description: "cc-remote-control controls — setup wizard, status, on/off toggle, test ping, log tail. Usage: /cc-remote-control setup | status | on | off | test | tail | help."
+description: "cc-imessage-control controls — setup wizard, status, on/off toggle, test ping, log tail. Usage: /cc-imessage-control setup | status | on | off | test | tail | help."
 argument-hint: "setup | status | on | off | test [phrase] | tail | help"
 ---
 
@@ -8,16 +8,16 @@ Interpret `$ARGUMENTS` as follows. Match exactly — do not be creative.
 If `$ARGUMENTS` is empty or `help`:
 - Print a one-line summary of all sub-commands and stop. Do not invoke any skill.
   ```
-  /cc-remote-control setup   → interactive setup wizard
-  /cc-remote-control status  → show config, on/off state, log path, last few log lines
-  /cc-remote-control on      → re-enable iMessage routing (delete the disable flag)
-  /cc-remote-control off     → disable iMessage routing (create ~/.claude/.cc-remote-disabled)
-  /cc-remote-control test    → run the router locally with a test phrase
-  /cc-remote-control tail    → tail the live router log
+  /cc-imessage-control setup   → interactive setup wizard
+  /cc-imessage-control status  → show config, on/off state, log path, last few log lines
+  /cc-imessage-control on      → re-enable iMessage routing (delete the disable flag)
+  /cc-imessage-control off     → disable iMessage routing (create ~/.claude/.cc-remote-disabled)
+  /cc-imessage-control test    → run the router locally with a test phrase
+  /cc-imessage-control tail    → tail the live router log
   ```
 
 If `$ARGUMENTS` is `setup`:
-- Invoke the `cc-remote-control-setup` skill and follow it. On macOS it
+- Invoke the `cc-imessage-control-setup` skill and follow it. On macOS it
   walks the user through writing `~/.claude/.cc-remote-env`, the
   Shortcuts shell-script line, opening Shortcuts.app, and a self-test.
   On Linux it walks through writing the same config, generating an
@@ -47,9 +47,9 @@ If `$ARGUMENTS` is `off`:
   echo "Disabled at $(date)" > ~/.claude/.cc-remote-disabled
   ```
 - Both `claude-router.sh` and `skill-router.sh` check for this file
-  early and exit silently with a "[cc-rc] cc-remote-control is OFF —
-  run /cc-remote-control on to re-enable" reply iMessage.
-- Confirm to the user: "cc-remote-control is now OFF. Incoming
+  early and exit silently with a "[cc-rc] cc-imessage-control is OFF —
+  run /cc-imessage-control on to re-enable" reply iMessage.
+- Confirm to the user: "cc-imessage-control is now OFF. Incoming
   `Claude <project>` and `skill <phrase>` texts will be ignored."
 
 If `$ARGUMENTS` is `on`:
@@ -57,7 +57,7 @@ If `$ARGUMENTS` is `on`:
   ```bash
   rm -f ~/.claude/.cc-remote-disabled
   ```
-- Confirm to the user: "cc-remote-control is now ON. Texting
+- Confirm to the user: "cc-imessage-control is now ON. Texting
   `Claude <project>` or `skill <phrase>` will fire normally."
 
 If `$ARGUMENTS` is `test` or `test <phrase>`:
@@ -76,4 +76,4 @@ If `$ARGUMENTS` is `tail`:
   output verbatim. Then suggest the user run `tail -f` in a real
   terminal if they want a live feed.
 
-Always end with a single-line pointer to the docs: `Full reference: https://github.com/nathan-hekman/cc-remote-control`.
+Always end with a single-line pointer to the docs: `Full reference: https://github.com/nathan-hekman/cc-imessage-control`.

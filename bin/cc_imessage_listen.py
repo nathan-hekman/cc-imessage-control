@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""cc-remote-control HTTP trigger listener (Linux).
+"""cc-imessage-control HTTP trigger listener (Linux).
 
 Tiny stdlib HTTP server that turns iPhone Personal Automation iMessage
 triggers into calls to claude-router.sh. Designed to run as a systemd

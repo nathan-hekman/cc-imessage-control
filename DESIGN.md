@@ -1,4 +1,4 @@
-# cc-remote-control — design system
+# cc-imessage-control — design system
 
 ## Palette
 

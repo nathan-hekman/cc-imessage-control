@@ -1,4 +1,4 @@
-# Releasing cc-remote-control
+# Releasing cc-imessage-control
 
 The release process and the format every GitHub Release notes page follows.
 
@@ -19,7 +19,7 @@ Same shape every time, top to bottom:
 Asset URL pattern:
 
 ```
-https://github.com/nathan-hekman/cc-remote-control/releases/download/cc-remote-control--v<X.Y.Z>/v<X.Y.Z>.png
+https://github.com/nathan-hekman/cc-imessage-control/releases/download/cc-imessage-control--v<X.Y.Z>/v<X.Y.Z>.png
 ```
 
 ## Voice
@@ -37,18 +37,18 @@ https://github.com/nathan-hekman/cc-remote-control/releases/download/cc-remote-c
 3. Commit + push the code changes to `main`. **Do not commit the PNG.**
 4. Tag:
    ```bash
-   git tag cc-remote-control--vX.Y.Z
-   git push origin cc-remote-control--vX.Y.Z
+   git tag cc-imessage-control--vX.Y.Z
+   git push origin cc-imessage-control--vX.Y.Z
    ```
 5. Create the GitHub Release:
    ```bash
-   gh release create cc-remote-control--vX.Y.Z \
-     --title "cc-remote-control vX.Y.Z, <short tagline>" \
+   gh release create cc-imessage-control--vX.Y.Z \
+     --title "cc-imessage-control vX.Y.Z, <short tagline>" \
      --notes "$(cat release-notes.md)"
    ```
 6. Upload the hero PNG as a release asset:
    ```bash
-   gh release upload cc-remote-control--vX.Y.Z /tmp/vX.Y.Z.png --clobber
+   gh release upload cc-imessage-control--vX.Y.Z /tmp/vX.Y.Z.png --clobber
    ```
    Rename the file `vX.Y.Z.png` first so the asset URL is predictable.
 7. Verify the hero image renders on the release page. Refresh once; GitHub caches eagerly.
@@ -56,7 +56,7 @@ https://github.com/nathan-hekman/cc-remote-control/releases/download/cc-remote-c
 ## Release notes template
 
 ```markdown
-![vX.Y.Z hero](https://github.com/nathan-hekman/cc-remote-control/releases/download/cc-remote-control--vX.Y.Z/vX.Y.Z.png)
+![vX.Y.Z hero](https://github.com/nathan-hekman/cc-imessage-control/releases/download/cc-imessage-control--vX.Y.Z/vX.Y.Z.png)
 
 ---
 
@@ -77,8 +77,8 @@ https://github.com/nathan-hekman/cc-remote-control/releases/download/cc-remote-c
 **How to update**
 
 \`\`\`bash
-claude plugin update cc-remote-control@cc-remote-control
+claude plugin update cc-imessage-control@cc-imessage-control
 \`\`\`
 
-[Full diff](https://github.com/nathan-hekman/cc-remote-control/compare/cc-remote-control--v<PREV>...cc-remote-control--v<THIS>)
+[Full diff](https://github.com/nathan-hekman/cc-imessage-control/compare/cc-imessage-control--v<PREV>...cc-imessage-control--v<THIS>)
 ```

@@ -1,9 +1,9 @@
 ---
-name: cc-remote-control-help
-description: Quick-reference card for cc-remote-control — what it does, how to install on macOS or Linux, the slash commands, where files live, FAQ. One-shot display, not a persistent mode. Trigger when user asks "/cc-remote-control help", "what does cc-remote-control do", "how do I use cc-remote-control", "claude remote router help".
+name: cc-imessage-control-help
+description: Quick-reference card for cc-imessage-control — what it does, how to install on macOS or Linux, the slash commands, where files live, FAQ. One-shot display, not a persistent mode. Trigger when user asks "/cc-imessage-control help", "what does cc-imessage-control do", "how do I use cc-imessage-control", "claude remote router help".
 ---
 
-# cc-remote-control — help
+# cc-imessage-control — help
 
 Display this reference. One-shot — do NOT change state, write config, or
 persist anything. Plain prose so the card reads as a reference.
@@ -30,14 +30,14 @@ a Claude Code session from the couch, the airport, the trail.**
 ## Install
 
 ```bash
-claude plugin marketplace add nathan-hekman/cc-remote-control
-claude plugin install cc-remote-control@cc-remote-control
+claude plugin marketplace add nathan-hekman/cc-imessage-control
+claude plugin install cc-imessage-control@cc-imessage-control
 ```
 
-Restart Claude Code. Then run `/cc-remote-control setup` to wire it
+Restart Claude Code. Then run `/cc-imessage-control setup` to wire it
 into Shortcuts (macOS) or systemd (Linux).
 
-Full docs: https://github.com/nathan-hekman/cc-remote-control
+Full docs: https://github.com/nathan-hekman/cc-imessage-control
 
 ## Two trigger paths
 
@@ -55,22 +55,22 @@ it off the public internet.
 
 | Command | What |
 |---------|------|
-| `/cc-remote-control setup` | Interactive setup wizard. Detects platform, writes config, walks through the trigger surface, runs a self-test. |
-| `/cc-remote-control status` | Shows config, project list, last 5 log lines. Phone number / secret masked. |
-| `/cc-remote-control test` | Runs the router locally with a test phrase (`Claude`) to verify wiring without spawning a session. |
-| `/cc-remote-control tail` | Last 20 lines of `router.log`. |
-| `/cc-remote-control help` | This card. |
+| `/cc-imessage-control setup` | Interactive setup wizard. Detects platform, writes config, walks through the trigger surface, runs a self-test. |
+| `/cc-imessage-control status` | Shows config, project list, last 5 log lines. Phone number / secret masked. |
+| `/cc-imessage-control test` | Runs the router locally with a test phrase (`Claude`) to verify wiring without spawning a session. |
+| `/cc-imessage-control tail` | Last 20 lines of `router.log`. |
+| `/cc-imessage-control help` | This card. |
 
 ## Where files live
 
-- **Plugin install (macOS):** `~/.claude/plugins/cache/cc-remote-control/cc-remote-control/<commit>/`
+- **Plugin install (macOS):** `~/.claude/plugins/cache/cc-imessage-control/cc-imessage-control/<commit>/`
 - **Plugin install (Linux):** same path, under the user's home
 - **Config:** `~/.claude/.cc-remote-env` (survives plugin updates;
   legacy `~/.claude/.cc-imessage-env` still read for backwards compat)
 - **Logs:** `~/.claude/.cc-remote-logs/router.log`
-- **systemd unit (Linux):** `~/.config/systemd/user/cc-remote-control.service`
+- **systemd unit (Linux):** `~/.config/systemd/user/cc-imessage-control.service`
 - **Source:** `bin/claude-router.sh` is the entry point on both
-  platforms. `bin/cc_remote_listen.py` is the Linux HTTP receiver.
+  platforms. `bin/cc_imessage_listen.py` is the Linux HTTP receiver.
 
 ## FAQ
 
@@ -99,6 +99,6 @@ your normal Claude Code plan.
 - macOS — reply iMessage doesn't arrive → run `bash "${CLAUDE_PLUGIN_ROOT}/bin/imessage_send.sh" "test"` manually. macOS will prompt for Messages automation permission the first time.
 - macOS — automation fires but Terminal doesn't open → check `~/.claude/.cc-remote-logs/router.log`. Most common: `claude: command not found` because Shortcuts runs without `.zshrc`. Edit the `export PATH=...` line in `claude-router.sh`.
 - macOS — trigger doesn't fire → Shortcuts.app → Automation → confirm the automation is toggled **on** at top-right. macOS sometimes disables them after permission prompts.
-- Linux — listener won't start → `systemctl --user status cc-remote-control.service` and `journalctl --user -u cc-remote-control.service -n 50`. Most common: `CC_REMOTE_SECRET` unset, or the `ExecStart=` path still references `HEAD` instead of the real install commit dir.
+- Linux — listener won't start → `systemctl --user status cc-imessage-control.service` and `journalctl --user -u cc-imessage-control.service -n 50`. Most common: `CC_REMOTE_SECRET` unset, or the `ExecStart=` path still references `HEAD` instead of the real install commit dir.
 - Linux — POST returns 401 → bearer token mismatch between iPhone Shortcut and `CC_REMOTE_SECRET` in the config file. Copy fresh.
 - `infer_project.sh` returns `NONE` every time → run `claude setup-token` to mint a headless OAuth token.

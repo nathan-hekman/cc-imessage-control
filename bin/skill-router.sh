@@ -1,5 +1,5 @@
 #!/bin/bash
-# skill-router.sh — "skill <phrase>" iMessage entry point for cc-remote-control.
+# skill-router.sh — "skill <phrase>" iMessage entry point for cc-imessage-control.
 #
 # Companion to claude-router.sh, but resolves the inbound phrase to a SLASH
 # COMMAND (not a project dir). Opens a new Terminal.app window cwd'd at the
@@ -13,7 +13,7 @@
 #       (a) directly, with $1 = the message body, OR
 #       (b) via claude-router.sh's keyword dispatcher (claude-router.sh
 #           detects the "skill" prefix and exec's this script).
-#   - Linux: bin/cc_remote_listen.py HTTP listener (same dispatch path).
+#   - Linux: bin/cc_imessage_listen.py HTTP listener (same dispatch path).
 #
 # Why a separate script: claude-router.sh resolves to a PROJECT
 # (build_project_list.sh / infer_project.sh) and starts a generic Claude
@@ -172,14 +172,14 @@ if [ -z "$raw_input" ]; then
   exit 1
 fi
 
-# Master kill-switch. `/cc-remote-control off` creates this file; `on`
+# Master kill-switch. `/cc-imessage-control off` creates this file; `on`
 # removes it. Skip processing when present. (Skip the check in dry-run
 # so testing still resolves matches.)
 DISABLE_FLAG="$CLAUDE_DIR/.cc-remote-disabled"
 if [ "$DRY_RUN" -eq 0 ] && [ -f "$DISABLE_FLAG" ]; then
-  log "ignored: cc-remote-control is OFF (flag at $DISABLE_FLAG)"
-  reply "cc-remote-control is OFF — run /cc-remote-control on to re-enable"
-  pushover_notify "cc-remote-control OFF — text ignored" "Got: '$raw_input'. Run /cc-remote-control on to re-enable." 0
+  log "ignored: cc-imessage-control is OFF (flag at $DISABLE_FLAG)"
+  reply "cc-imessage-control is OFF — run /cc-imessage-control on to re-enable"
+  pushover_notify "cc-imessage-control OFF — text ignored" "Got: '$raw_input'. Run /cc-imessage-control on to re-enable." 0
   exit 0
 fi
 

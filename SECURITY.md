@@ -1,8 +1,8 @@
-# Security model, cc-remote-control
+# Security model, cc-imessage-control
 
 ## What this bridge does in security terms
 
-`cc-remote-control` accepts a single text trigger on your Mac (iMessage Shortcut) or your Linux box (authenticated HTTP POST), matches it against a sender/auth filter, then spawns a terminal running `claude --remote-control` in one of your project directories. It is **not** a remote shell. It does **not** parse the message body as code. It maps the body to one of a fixed list of project slugs (your own folder names) via a Claude Haiku classification.
+`cc-imessage-control` accepts a single text trigger on your Mac (iMessage Shortcut) or your Linux box (authenticated HTTP POST), matches it against a sender/auth filter, then spawns a terminal running `claude --remote-control` in one of your project directories. It is **not** a remote shell. It does **not** parse the message body as code. It maps the body to one of a fixed list of project slugs (your own folder names) via a Claude Haiku classification.
 
 ## Threat model — macOS
 
@@ -41,7 +41,7 @@
 
 ## Reporting issues
 
-If you find a security issue, please **do not** open a public GitHub issue. Open a [private GitHub Security Advisory](https://github.com/nathan-hekman/cc-remote-control/security/advisories/new) instead, that's the preferred channel. As a fallback you can reach the author at the email listed on [github.com/nathan-hekman](https://github.com/nathan-hekman).
+If you find a security issue, please **do not** open a public GitHub issue. Open a [private GitHub Security Advisory](https://github.com/nathan-hekman/cc-imessage-control/security/advisories/new) instead, that's the preferred channel. As a fallback you can reach the author at the email listed on [github.com/nathan-hekman](https://github.com/nathan-hekman).
 
 ## Auth / credentials reference
 

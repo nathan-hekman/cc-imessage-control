@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/cc.png" alt="cc-remote-control logo" width="140">
+  <img src="docs/assets/cc.png" alt="cc-imessage-control logo" width="140">
 </p>
 
-<h1 align="center">cc-remote-control</h1>
+<h1 align="center">cc-imessage-control</h1>
 
 <p align="center"><strong>Start Claude on your Mac or Linux box from a text.</strong></p>
 
@@ -24,14 +24,14 @@ you didn't text yourself.
 ## Install
 
 ```bash
-claude plugin marketplace add nathan-hekman/cc-remote-control
-claude plugin install cc-remote-control@cc-remote-control
+claude plugin marketplace add nathan-hekman/cc-imessage-control
+claude plugin install cc-imessage-control@cc-imessage-control
 ```
 
 Restart Claude Code, then:
 
 ```
-/cc-remote-control setup
+/cc-imessage-control setup
 ```
 
 5-minute wizard. Detects whether you're on macOS or Linux and walks
@@ -88,11 +88,11 @@ New project? Just `mkdir` it under your projects root. No config change.
 
 | Command                       | What                                     |
 |-------------------------------|------------------------------------------|
-| `/cc-remote-control setup`    | Interactive setup wizard                 |
-| `/cc-remote-control status`   | Config + project list + recent logs      |
-| `/cc-remote-control test`     | Run the router locally, no network       |
-| `/cc-remote-control tail`     | Last 20 log lines                        |
-| `/cc-remote-control help`     | Reference card                           |
+| `/cc-imessage-control setup`    | Interactive setup wizard                 |
+| `/cc-imessage-control status`   | Config + project list + recent logs      |
+| `/cc-imessage-control test`     | Run the router locally, no network       |
+| `/cc-imessage-control tail`     | Last 20 log lines                        |
+| `/cc-imessage-control help`     | Reference card                           |
 
 ## More
 

@@ -1,4 +1,4 @@
-# cc-remote-control — product context
+# cc-imessage-control — product context
 
 ## Register
 
@@ -75,7 +75,7 @@ What this landing page must **not** look or sound like:
 2. **Native is the moat.** macOS Shortcuts is a known, trusted, Apple-
    first-party surface. Use that recognition in the visual language.
 3. **Install must look turnkey.** Two `claude plugin` commands +
-   `/cc-remote-control setup`. Show that, prominently, near the top.
+   `/cc-imessage-control setup`. Show that, prominently, near the top.
 4. **No exaggeration.** The remote-driving experience itself is a
    Claude Code feature — we're the doorbell that wakes it up. Don't
    over-claim. Don't oversell.

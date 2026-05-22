@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// cc-remote-update-check.js — standalone update probe.
+// cc-imessage-update-check.js — standalone update probe.
 //
-// Hits GitHub's "latest release" API for nathan-hekman/cc-remote-control,
-// parses the version from the tag (`cc-remote-control--vX.Y.Z` → `X.Y.Z`),
+// Hits GitHub's "latest release" API for nathan-hekman/cc-imessage-control,
+// parses the version from the tag (`cc-imessage-control--vX.Y.Z` → `X.Y.Z`),
 // compares to the installed plugin.json version, and writes:
 //
 //   $CLAUDE_CONFIG_DIR/.cc-remote-update-available   contains "X.Y.Z" if newer
@@ -18,8 +18,8 @@ const os = require('os');
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const HTTP_TIMEOUT_MS = 4000;
-const REPO = 'nathan-hekman/cc-remote-control';
-const TAG_PREFIX = 'cc-remote-control--v';
+const REPO = 'nathan-hekman/cc-imessage-control';
+const TAG_PREFIX = 'cc-imessage-control--v';
 
 const claudeDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
 const flagPath = path.join(claudeDir, '.cc-remote-update-available');
@@ -58,7 +58,7 @@ const req = https.request({
   path: `/repos/${REPO}/releases/latest`,
   method: 'GET',
   headers: {
-    'User-Agent': 'cc-remote-control-update-check',
+    'User-Agent': 'cc-imessage-control-update-check',
     'Accept': 'application/vnd.github+json',
   },
   timeout: HTTP_TIMEOUT_MS,

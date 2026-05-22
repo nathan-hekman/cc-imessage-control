@@ -1,6 +1,6 @@
 [Unit]
-Description=cc-remote-control HTTP trigger listener
-Documentation=https://github.com/nathan-hekman/cc-remote-control
+Description=cc-imessage-control HTTP trigger listener
+Documentation=https://github.com/nathan-hekman/cc-imessage-control
 After=network-online.target
 Wants=network-online.target
 
@@ -15,10 +15,10 @@ EnvironmentFile=%h/.claude/.cc-remote-env
 
 # The exact path here depends on where the plugin is installed. After
 # `claude plugin install`, it lives under:
-#   %h/.claude/plugins/cache/cc-remote-control/cc-remote-control/<commit>/
+#   %h/.claude/plugins/cache/cc-imessage-control/cc-imessage-control/<commit>/
 # Update this line to match your install (the setup wizard prints the
 # right path for you).
-ExecStart=/usr/bin/env python3 %h/.claude/plugins/cache/cc-remote-control/cc-remote-control/HEAD/bin/cc_remote_listen.py
+ExecStart=/usr/bin/env python3 %h/.claude/plugins/cache/cc-imessage-control/cc-imessage-control/HEAD/bin/cc_imessage_listen.py
 
 Restart=on-failure
 RestartSec=5s

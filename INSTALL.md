@@ -1,4 +1,4 @@
-# cc-remote-control, install reference
+# cc-imessage-control, install reference
 
 Works on macOS (iMessage Shortcuts trigger) and Linux (HTTP listener
 behind Tailscale or LAN). The plugin install is identical on both
@@ -7,16 +7,16 @@ platforms — the wizard branches by `uname` when you run `setup`.
 ## Pure Claude Code commands (recommended)
 
 ```bash
-claude plugin marketplace add nathan-hekman/cc-remote-control
-claude plugin install cc-remote-control@cc-remote-control
+claude plugin marketplace add nathan-hekman/cc-imessage-control
+claude plugin install cc-imessage-control@cc-imessage-control
 ```
 
-That clones the marketplace into `$CLAUDE_CONFIG_DIR/plugins/marketplaces/cc-remote-control/`, installs the plugin into `$CLAUDE_CONFIG_DIR/plugins/cache/cc-remote-control/cc-remote-control/<commit>/`, and registers it so it shows up in `/plugin list` and in the Claude Code desktop UI.
+That clones the marketplace into `$CLAUDE_CONFIG_DIR/plugins/marketplaces/cc-imessage-control/`, installs the plugin into `$CLAUDE_CONFIG_DIR/plugins/cache/cc-imessage-control/cc-imessage-control/<commit>/`, and registers it so it shows up in `/plugin list` and in the Claude Code desktop UI.
 
 Restart Claude Code, then:
 
 ```
-/cc-remote-control setup
+/cc-imessage-control setup
 ```
 
 The setup wizard detects your platform and walks the right path. ~5
@@ -26,7 +26,7 @@ the iPhone Shortcut config).
 ## One-line install (curl | bash)
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/nathan-hekman/cc-remote-control/main/install-claude-code.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/nathan-hekman/cc-imessage-control/main/install-claude-code.sh)
 ```
 
 Clones the repo to a temp dir and runs `install.sh --force`. Same end state as the two `claude plugin` commands above. Idempotent, safe to re-run.
@@ -34,8 +34,8 @@ Clones the repo to a temp dir and runs `install.sh --force`. Same end state as t
 ## Local clone install
 
 ```bash
-git clone https://github.com/nathan-hekman/cc-remote-control.git
-cd cc-remote-control
+git clone https://github.com/nathan-hekman/cc-imessage-control.git
+cd cc-imessage-control
 ./install.sh                  # plugin install + next-step pointer
 ./install.sh --plugin-only    # plugin only, skip the nudge
 ./install.sh --dry-run        # preview, write nothing
@@ -68,11 +68,11 @@ cd cc-remote-control
 
 | Path | Purpose |
 |------|---------|
-| `$CLAUDE_CONFIG_DIR/plugins/cache/cc-remote-control/cc-remote-control/<commit>/` | Plugin install (scripts, hooks, skills, commands) |
+| `$CLAUDE_CONFIG_DIR/plugins/cache/cc-imessage-control/cc-imessage-control/<commit>/` | Plugin install (scripts, hooks, skills, commands) |
 | `$CLAUDE_CONFIG_DIR/.cc-remote-env` | Your config (phone, prefix, model, project roots, listener settings) |
 | `$CLAUDE_CONFIG_DIR/.cc-remote-logs/router.log` | Append-only run log |
 | `$CLAUDE_CONFIG_DIR/.cc-remote-update-available` | Sentinel, written by update-check hook when a newer release exists |
-| `~/.config/systemd/user/cc-remote-control.service` (Linux only) | User-mode systemd unit running the HTTP listener |
+| `~/.config/systemd/user/cc-imessage-control.service` (Linux only) | User-mode systemd unit running the HTTP listener |
 
 `$CLAUDE_CONFIG_DIR` defaults to `~/.claude`. Legacy paths
 (`.cc-imessage-env`, `.cc-imessage-logs`) from pre-v0.4.0 installs are
@@ -81,15 +81,15 @@ still read for backwards compat.
 ## Updating
 
 ```bash
-claude plugin update cc-remote-control@cc-remote-control
+claude plugin update cc-imessage-control@cc-imessage-control
 ```
 
-Your config (`.cc-remote-env`) and logs live outside the plugin cache, so they survive updates automatically. On Linux, after a plugin update the systemd unit's `ExecStart=` path will reference the previous commit dir — re-run `/cc-remote-control setup` so the wizard patches the unit, or `systemctl --user edit cc-remote-control.service` manually.
+Your config (`.cc-remote-env`) and logs live outside the plugin cache, so they survive updates automatically. On Linux, after a plugin update the systemd unit's `ExecStart=` path will reference the previous commit dir — re-run `/cc-imessage-control setup` so the wizard patches the unit, or `systemctl --user edit cc-imessage-control.service` manually.
 
 ## Uninstalling
 
 ```bash
-claude plugin uninstall cc-remote-control@cc-remote-control
+claude plugin uninstall cc-imessage-control@cc-imessage-control
 ```
 
 That removes the plugin from `$CLAUDE_CONFIG_DIR/plugins/cache/`. To fully clean up:
@@ -99,8 +99,8 @@ rm -f ~/.claude/.cc-remote-env ~/.claude/.cc-remote-update-* ~/.claude/.cc-remot
 rm -rf ~/.claude/.cc-remote-logs
 
 # Linux extras:
-systemctl --user disable --now cc-remote-control.service 2>/dev/null
-rm -f ~/.config/systemd/user/cc-remote-control.service
+systemctl --user disable --now cc-imessage-control.service 2>/dev/null
+rm -f ~/.config/systemd/user/cc-imessage-control.service
 systemctl --user daemon-reload
 ```
 
