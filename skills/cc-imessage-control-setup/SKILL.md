@@ -138,20 +138,37 @@ If they want to exclude something, edit `$CONFIG_FILE` to add a
 
 ## Step 5A — macOS: print the Shortcuts shell-script line
 
+First, ensure the stable launcher exists (the SessionStart hook writes
+it automatically, but a manual run from the wizard is safe and idempotent):
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/bin/install-launcher.sh"
+```
+
+That creates `$HOME/.claude/cc-imessage-control-launcher.sh`, which is
+the stable indirection Shortcuts will pin. The launcher resolves the
+actual router via the pin file at `$HOME/.claude/.cc-remote-router-path`,
+refreshed every Claude Code session start. This survives plugin version
+bumps AND dev-clone renames — historically the #1 source of silent
+trigger failures.
+
 Print this to the chat verbatim with a clear "copy this exact line"
 instruction:
 
 ```
-"$INSTALL_PATH/bin/claude-router.sh" "$1"
+"$HOME/.claude/cc-imessage-control-launcher.sh" "$1"
 ```
 
-(With `$INSTALL_PATH` already substituted to the resolved absolute
-path.)
+(Use `$HOME` literally — Shortcuts.app's shell expands it correctly.
+Don't substitute the absolute path; keeping `$HOME` lets the same line
+work if Nathan ever migrates Macs.)
 
 Tell the user: "In a moment we'll open Shortcuts.app. You'll create
 one shortcut + one automation. The shortcut needs that exact line
 above as its `Run Shell Script` action. Pass Input must be set to
-**'as arguments'** — that's the part that makes `$1` work."
+**'as arguments'** — that's the part that makes `$1` work. Because
+this points at the stable launcher (not the version-pinned plugin path),
+you only have to set it once — future updates won't break it."
 
 ## Step 5B — Linux: install the systemd user service
 
