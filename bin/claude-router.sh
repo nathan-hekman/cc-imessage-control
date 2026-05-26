@@ -166,7 +166,16 @@ if [ -z "$phrase" ]; then
   exit 0
 fi
 
+# Slow-path ack: tell infer_project.sh to send an "[cc-rc] looking up..."
+# iMessage IF it has to fall back to the Haiku call (prefilter miss). Only
+# wire this on macOS — the iMessage sender is no-op elsewhere. The fast
+# path stays silent so deterministic matches don't double up on the
+# eventual "Session started" reply.
+if [ "$PLATFORM" = "Darwin" ]; then
+  export CC_REMOTE_SLOW_ACK_MSG="looking up '$phrase'..."
+fi
 slug=$("$INFER" "$phrase" 2>>"$LOG_FILE")
+unset CC_REMOTE_SLOW_ACK_MSG
 log "infer → $slug"
 
 if [ -z "$slug" ] || [ "$slug" = "NONE" ]; then

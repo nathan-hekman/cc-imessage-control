@@ -59,7 +59,7 @@ best_len=0
 while IFS= read -r slug; do
   [ -z "$slug" ] && continue
   slug_lower=$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]')
-  slug_dashed=" $(printf '%s' "$slug_lower" | tr '-_' '  ') "
+  slug_dashed=" $(printf '%s' "$slug_lower" | sed 's/[-_]/ /g') "
 
   # Exact-name short-circuit (case-insensitive).
   if [ "$phrase_lower" = "$slug_lower" ]; then
@@ -113,6 +113,20 @@ fi
 
 # ------------------------------------------------------------ Haiku fallback
 #
+# Slow-path ack: prefilter missed, so we're about to spend 6–10s on a
+# Haiku call. Fire an "[cc-rc] looking up '<phrase>'..." iMessage now so
+# the user sees acknowledgment instead of dead silence between the text
+# they sent and the eventual "Session started" reply. Gated by the
+# CC_REMOTE_SLOW_ACK_MSG env var set by claude-router.sh — keeps this
+# script reusable in contexts where Messages.app isn't available
+# (Linux, CI smoke tests, --dry-run callers).
+if [ -n "${CC_REMOTE_SLOW_ACK_MSG:-}" ]; then
+  ACK_SENDER="$PROJECT_DIR/bin/imessage_send.sh"
+  if [ -x "$ACK_SENDER" ]; then
+    "$ACK_SENDER" "$CC_REMOTE_SLOW_ACK_MSG" >/dev/null 2>&1 || true
+  fi
+fi
+
 # Non-interactive `claude -p` needs the long-lived headless OAuth token
 # (set up once with `claude setup-token`). When this script is invoked
 # from inside another Claude Code session the parent injects
