@@ -46,14 +46,21 @@ scan_root() {
   done
 }
 
-scan_root "$PROJECTS_ROOT"
+{
+  scan_root "$PROJECTS_ROOT"
 
-if [ -n "$PROJECTS_ROOT_EXTRA" ]; then
-  IFS=',' read -r -a extras <<< "$PROJECTS_ROOT_EXTRA"
-  for extra in "${extras[@]}"; do
-    # Trim and expand ~ / $HOME if user put literal "~/..." in .env.
-    extra="${extra## }"; extra="${extra%% }"
-    extra="${extra/#\~/$HOME}"
-    scan_root "$extra"
-  done
-fi
+  if [ -n "$PROJECTS_ROOT_EXTRA" ]; then
+    IFS=',' read -r -a extras <<< "$PROJECTS_ROOT_EXTRA"
+    for extra in "${extras[@]}"; do
+      # Trim and expand ~ / $HOME if user put literal "~/..." in .env.
+      extra="${extra## }"; extra="${extra%% }"
+      extra="${extra/#\~/$HOME}"
+      scan_root "$extra"
+    done
+  fi
+} | awk -F'|' '!seen[$1]++'
+# Dedupe by slug (first occurrence wins). Without this, having the same
+# folder name under two scanned roots (e.g. `image-blaster-test` both at
+# the top of $HOME/Documents AND inside `$HOME/Documents/Other Projects`)
+# emits the slug twice. infer_project.sh resolves the first row, but the
+# duplicate is still visible in the router's "Available:" reply menu.
