@@ -122,7 +122,7 @@ CMD_DIRS=(
   "$HOME/Documents/scrape-collection"
   "$HOME/Documents/scrape-collection"
   "$HOME/Documents/scrape-collection"
-  "$HOME/heb-shopping-skill"
+  "$HOME/Documents/Other Projects/heb-shopping-skill"
 )
 
 # Pure-function alias map. Returns canonical command name or empty string.
