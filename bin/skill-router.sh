@@ -115,12 +115,14 @@ CMD_NAMES=(
   "daily-collection-summary"
   "morning-deals-headline"
   "cy-vault-ship"
+  "heb-curbside-order"
 )
 CMD_DIRS=(
   "$HOME/Documents/scrape-collection"
   "$HOME/Documents/scrape-collection"
   "$HOME/Documents/scrape-collection"
   "$HOME/Documents/scrape-collection"
+  "$HOME/heb-shopping-skill"
 )
 
 # Pure-function alias map. Returns canonical command name or empty string.
@@ -134,6 +136,8 @@ alias_to_cmd() {
       echo "morning-deals-headline" ;;
     "cy"|"vault"|"cy vault"|"cy ship"|"vault ship"|"cy vault ship"|"courtyard"|"courtyard ship"|"courtyard vault"|"ship cy")
       echo "cy-vault-ship" ;;
+    "heb"|"heb order"|"heb curbside"|"curbside"|"curbside order"|"groceries"|"grocery"|"grocery order"|"grocery shopping"|"weekly groceries"|"shopping"|"heb shopping"|"order groceries")
+      echo "heb-curbside-order" ;;
     *)
       echo "" ;;
   esac
