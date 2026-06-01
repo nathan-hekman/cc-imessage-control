@@ -83,6 +83,13 @@ LIST="$PROJECT_DIR/bin/build_project_list.sh"
 PREFIX="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[cc-rc]}}"
 PLATFORM="$(uname)"
 
+# Model + reasoning effort for every remote-spawned session. Opus 4.8 at
+# "extra high" (xhigh) effort by default. Override by setting CC_LAUNCH_FLAGS
+# in ~/.claude/.cc-remote-env. These flags are word-split into the launch
+# command string below — they MUST be baked into the command, not exported,
+# because the new Terminal/tmux shell does not inherit this process's env.
+CC_LAUNCH_FLAGS="${CC_LAUNCH_FLAGS:-"--model claude-opus-4-8 --effort xhigh"}"
+
 # reply <msg> — only sends on macOS; no-op on Linux.
 reply() {
   if [ "$PLATFORM" = "Darwin" ]; then
@@ -201,7 +208,7 @@ launch_macos() {
   osascript <<APPLESCRIPT
 tell application "Terminal"
     activate
-    set newTab to do script "cd \"$escaped_path\" && claude --remote-control \"$slug\""
+    set newTab to do script "cd \"$escaped_path\" && claude $CC_LAUNCH_FLAGS --remote-control \"$slug\""
     delay 0.3
     set custom title of newTab to "$title"
 end tell
@@ -209,12 +216,12 @@ APPLESCRIPT
 }
 
 launch_linux() {
-  local cmd="cd \"$path\" && claude --remote-control \"$slug\"; exec \${SHELL:-bash}"
+  local cmd="cd \"$path\" && claude $CC_LAUNCH_FLAGS --remote-control \"$slug\"; exec \${SHELL:-bash}"
 
   # Headless box (no display server) — drop into a detached tmux session.
   if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
     if command -v tmux >/dev/null 2>&1; then
-      tmux new-session -d -s "$slug" -c "$path" "claude --remote-control \"$slug\""
+      tmux new-session -d -s "$slug" -c "$path" "claude $CC_LAUNCH_FLAGS --remote-control \"$slug\""
       log "launched (tmux): session $slug"
       return 0
     fi

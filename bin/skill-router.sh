@@ -71,6 +71,13 @@ PREFIX="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[cc-rc]}}"
 SEND="$PROJECT_DIR/bin/imessage_send.sh"
 PLATFORM="$(uname)"
 
+# Model + reasoning effort for every remote-spawned session. Opus 4.8 at
+# "extra high" (xhigh) effort by default. Override by setting CC_LAUNCH_FLAGS
+# in ~/.claude/.cc-remote-env. These flags are word-split into the launch
+# command string below — they MUST be baked into the command, not exported,
+# because the new Terminal/tmux shell does not inherit this process's env.
+CC_LAUNCH_FLAGS="${CC_LAUNCH_FLAGS:-"--model claude-opus-4-8 --effort xhigh"}"
+
 # reply <msg> — send an iMessage back on macOS; no-op elsewhere.
 reply() {
   if [ "$PLATFORM" = "Darwin" ] && [ -x "$SEND" ]; then
@@ -269,7 +276,7 @@ if [ ! -d "$project_dir" ]; then
 fi
 
 slug="${match}-$(date +%Y%m%d-%H%M%S)"
-launch_cmd="cd \"$project_dir\" && claude --remote-control \"$slug\" \"/$match\""
+launch_cmd="cd \"$project_dir\" && claude $CC_LAUNCH_FLAGS --remote-control \"$slug\" \"/$match\""
 
 if [ "$DRY_RUN" -eq 1 ]; then
   log "DRY-RUN: would launch: $launch_cmd"
@@ -297,7 +304,7 @@ launch_linux() {
   local cmd="$launch_cmd; exec \${SHELL:-bash}"
   if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
     if command -v tmux >/dev/null 2>&1; then
-      tmux new-session -d -s "$slug" -c "$project_dir" "claude --remote-control \"$slug\" \"/$match\""
+      tmux new-session -d -s "$slug" -c "$project_dir" "claude $CC_LAUNCH_FLAGS --remote-control \"$slug\" \"/$match\""
       return 0
     fi
     return 1
