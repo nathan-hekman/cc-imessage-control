@@ -52,7 +52,7 @@ This shortcut was created via the following user prompt:
 						<key>attachmentsByRange</key>
 						<dict/>
 						<key>string</key>
-						<string>rich-box.tailnet.ts.net</string>
+						<string>my-box.tailnet.ts.net</string>
 					</dict>
 					<key>WFSerializationType</key>
 					<string>WFTextTokenString</string>
@@ -96,7 +96,7 @@ This shortcut was created via the following user prompt:
 						<key>attachmentsByRange</key>
 						<dict/>
 						<key>string</key>
-						<string>rich</string>
+						<string>user</string>
 					</dict>
 					<key>WFSerializationType</key>
 					<string>WFTextTokenString</string>

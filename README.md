@@ -78,12 +78,12 @@ instructions.
   `SSH_PORT`) with the values the wizard printed.
 - **Build it by hand** (5 actions) if you'd rather not import a file:
 
-  1. **Text** → your tailnet host (e.g. `rich-box.tailnet.ts.net`) →
+  1. **Text** → your tailnet host (e.g. `my-box.tailnet.ts.net`) →
      *Set Variable* `SSH_HOST`.
   2. **Text** → your username → *Set Variable* `SSH_USER`.
   3. **Text** → `22` → *Set Variable* `SSH_PORT`.
   4. **If** *Shortcut Input* has any value → use it; *Otherwise* **Ask
-     for Input** (Text, prompt "Phrase (e.g. claude ebay)"). *Set
+     for Input** (Text, prompt "Phrase (e.g. claude api)"). *Set
      Variable* `PHRASE`.
   5. **Run Script over SSH** — Host `SSH_HOST`, User `SSH_USER`, Port
      `SSH_PORT`, Authentication **SSH Key**, Script:
@@ -120,20 +120,21 @@ project dir.
 
 | You text          | Machine opens                      |
 |-------------------|------------------------------------|
-| `Claude eBay`     | `~/Documents/ebay-scrape-new`      |
-| `Claude scraper`  | `~/Documents/cy-scraper-new`       |
+| `Claude api`      | `~/Documents/my-api`               |
+| `Claude web`      | `~/Documents/web-app`              |
 | `Claude` (alone)  | macOS texts a project menu; Linux logs a menu |
 
 **`skill <phrase>`** — opens a fresh session AND fires a plugin slash
 command in that plugin's project dir. The session is doing real work
 the instant it opens.
 
-| You text                | Session opens                                                  |
-|-------------------------|----------------------------------------------------------------|
-| `skill update fin`      | `~/Documents/scrape-collection`, runs `/update-financials`     |
-| `skill courtyard`       | `~/Documents/scrape-collection`, runs `/cy-vault-ship`         |
-| `skill morning`         | `~/Documents/scrape-collection`, runs `/morning-deals-headline`|
-| `skill daily summary`   | `~/Documents/scrape-collection`, runs `/daily-collection-summary` |
+| You text             | Session opens                                          |
+|----------------------|--------------------------------------------------------|
+| `skill deploy`       | `~/Documents/my-plugin`, runs `/deploy`                |
+| `skill report`       | `~/Documents/my-plugin`, runs `/daily-report`          |
+
+(Examples are illustrative — map the keywords to your own projects and
+plugin commands in `bin/skill-router.sh`.)
 
 Both keywords route through the same `bin/claude-router.sh`, which
 dispatches `skill` → `bin/skill-router.sh`. Use ONE Shortcut whose

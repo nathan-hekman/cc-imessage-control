@@ -12,7 +12,7 @@ persist anything. Plain prose so the card reads as a reference.
 
 **Start Claude on your Mac or Linux box from a text.**
 
-Text yourself `Claude eBay` (or any project name) from your iPhone — a
+Text yourself `Claude api` (or any project name) from your iPhone — a
 native iOS/macOS Shortcut catches the keyword and launches
 `claude --remote-control "<slug>"` in a fresh terminal on the target
 box. You open the iOS Claude app → Code tab → tap the new session
