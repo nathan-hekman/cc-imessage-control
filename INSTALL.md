@@ -1,8 +1,9 @@
 # cc-imessage-control, install reference
 
-Works on macOS (iMessage Shortcuts trigger) and Linux (HTTP listener
-behind Tailscale or LAN). The plugin install is identical on both
-platforms — the wizard branches by `uname` when you run `setup`.
+Works on macOS (iMessage Shortcuts trigger) and Linux (SSH over
+Tailscale by default; HTTP listener as a fallback). The plugin install
+is identical on both platforms — the wizard branches by `uname` when
+you run `setup`.
 
 ## Pure Claude Code commands (recommended)
 
@@ -53,16 +54,21 @@ cd cc-imessage-control
 | **Claude Code headless OAuth token** | Lets the router call `claude -p` non-interactively from a Shortcut | Run `claude setup-token` once |
 | **Your phone number in E.164 format** | Reply target (e.g. `+15551234567`) | You already know it |
 
-## Prerequisites — Linux
+## Prerequisites — Linux (default: SSH over Tailscale)
 
 | Thing | Why | How to get it |
 |------|-----|---------------|
-| **Any Linux with systemd + python3** | Listener service + stdlib HTTP server | Already on most distros |
-| **A reachable network path from iPhone → box** | Phone Shortcut posts the trigger | Tailscale (recommended), LAN, Cloudflare Tunnel, or ngrok |
-| **`openssl` for secret generation** | Wizard generates the bearer token | `apt install openssl` / `dnf install openssl` |
+| **`sshd` running** | The iPhone's native "Run Script over SSH" action logs in and runs the router | `sudo systemctl enable --now ssh` (Debian/Ubuntu) or `sshd` (Fedora/Arch) |
+| **Tailscale on phone + box, same tailnet** | Private wire so the phone can reach the box anywhere | [tailscale.com/download](https://tailscale.com/download), then `tailscale up` |
+| **An iPhone** | Runs the **CC Remote SSH** shortcut + the Message automation. No paid app — the SSH action is built into iOS Shortcuts | — |
 | **Claude Code (Pro or Max plan)** | Remote Control is a Pro/Max feature | [claude.com/claude-code](https://claude.com/claude-code) |
-| **Claude Code headless OAuth token** | Lets the router call `claude -p` non-interactively from systemd | Run `claude setup-token` once |
+| **Claude Code headless OAuth token** | Lets the router call `claude -p` non-interactively over SSH | Run `claude setup-token` once |
 | **A terminal emulator OR tmux** | Where the Claude session lands. Wizard tries `gnome-terminal`, `konsole`, `xterm`, `kitty`, `alacritty`, `tilix`, `x-terminal-emulator`. No `$DISPLAY` → falls back to detached `tmux`. | Distro default usually fine |
+
+**Fallback (HTTP listener) extras** — only if you decline SSH in the
+wizard: `systemd` + `python3` (for the listener service) and `openssl`
+(to generate the bearer token). See the wizard's "Appendix: HTTP
+listener path".
 
 ## What gets installed where
 
@@ -72,7 +78,8 @@ cd cc-imessage-control
 | `$CLAUDE_CONFIG_DIR/.cc-remote-env` | Your config (phone, prefix, model, project roots, listener settings) |
 | `$CLAUDE_CONFIG_DIR/.cc-remote-logs/router.log` | Append-only run log |
 | `$CLAUDE_CONFIG_DIR/.cc-remote-update-available` | Sentinel, written by update-check hook when a newer release exists |
-| `~/.config/systemd/user/cc-imessage-control.service` (Linux only) | User-mode systemd unit running the HTTP listener |
+| `~/.claude/cc-imessage-control-launcher.sh` | Stable launcher the SSH path (and macOS Shortcut) calls |
+| `~/.config/systemd/user/cc-imessage-control.service` (Linux, HTTP fallback only) | User-mode systemd unit running the HTTP listener |
 
 `$CLAUDE_CONFIG_DIR` defaults to `~/.claude`. Legacy paths
 (`.cc-imessage-env`, `.cc-imessage-logs`) from pre-v0.4.0 installs are
@@ -84,7 +91,7 @@ still read for backwards compat.
 claude plugin update cc-imessage-control@cc-imessage-control
 ```
 
-Your config (`.cc-remote-env`) and logs live outside the plugin cache, so they survive updates automatically. On Linux, after a plugin update the systemd unit's `ExecStart=` path will reference the previous commit dir — re-run `/cc-imessage-control setup` so the wizard patches the unit, or `systemctl --user edit cc-imessage-control.service` manually.
+Your config (`.cc-remote-env`) and logs live outside the plugin cache, so they survive updates automatically. The SSH path is update-proof: the phone calls the stable `~/.claude/cc-imessage-control-launcher.sh`, which re-resolves the router on every Claude Code session start. (HTTP-fallback users only: after an update the systemd unit's `ExecStart=` path references the previous commit dir — re-run `/cc-imessage-control setup` so the wizard patches the unit, or `systemctl --user edit cc-imessage-control.service` manually.)
 
 ## Uninstalling
 
@@ -98,7 +105,9 @@ That removes the plugin from `$CLAUDE_CONFIG_DIR/plugins/cache/`. To fully clean
 rm -f ~/.claude/.cc-remote-env ~/.claude/.cc-remote-update-* ~/.claude/.cc-remote-active
 rm -rf ~/.claude/.cc-remote-logs
 
-# Linux extras:
+# Linux SSH path: remove the phone's public key line from authorized_keys
+#   (edit ~/.ssh/authorized_keys and delete the line you pasted in).
+# Linux HTTP fallback only:
 systemctl --user disable --now cc-imessage-control.service 2>/dev/null
 rm -f ~/.config/systemd/user/cc-imessage-control.service
 systemctl --user daemon-reload
@@ -106,4 +115,4 @@ systemctl --user daemon-reload
 
 Then:
 - **macOS:** open Shortcuts.app and delete the **Run claude launcher** shortcut and the **Message → claude** automation.
-- **Linux:** delete the iPhone Personal Automation pointing at your listener URL.
+- **Linux:** on the iPhone, delete the **CC Remote SSH** shortcut and the Message automation that calls it (HTTP-fallback users: the automation that POSTs to your listener URL).
