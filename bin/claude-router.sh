@@ -100,14 +100,17 @@ reply() {
 }
 
 # pushover_notify <title> <message> [priority] [deep_link]
-#   Send a Pushover ping IF scrape-collection's pushover.py is on disk.
+#   Send a Pushover ping IF a Pushover helper is configured. Set
+#   CC_PUSHOVER_HELPER in ~/.claude/.cc-remote-env to the absolute path
+#   of a script accepting --title/--message/--priority/--url/--url-title.
 #   Used for failure + success surfaces. `deep_link` defaults to
 #   claude://code/ which makes the notification's tap target jump
 #   straight into the Claude iOS app's Code tab. Pass an empty string
-#   to suppress the tap target. Silent no-op if the helper isn't present.
+#   to suppress the tap target. Silent no-op if CC_PUSHOVER_HELPER is
+#   unset or the file is missing.
 pushover_notify() {
   local title="$1" message="$2" priority="${3:-0}" deep_link="${4:-claude://code/}"
-  local helper="$HOME/Documents/scrape-collection/scripts/orchestrator/pushover.py"
+  local helper="${CC_PUSHOVER_HELPER:-}"
   if [ -f "$helper" ]; then
     if [ -n "$deep_link" ]; then
       python3 "$helper" --title "$title" --message "$message" --priority "$priority" --url "$deep_link" --url-title "Open Claude iOS" >>"$LOG_FILE" 2>&1 || true

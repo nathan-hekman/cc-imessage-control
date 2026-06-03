@@ -93,6 +93,11 @@ LOG_DIR="${CC_REMOTE_LOG_DIR:-$CLAUDE_DIR/.cc-remote-logs}"
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 OVERRIDE="${CC_REMOTE_ROUTER_OVERRIDE:-}"
 
+# Load config so the broken-launcher fallback can reach CC_PUSHOVER_HELPER.
+if [ -f "$CLAUDE_DIR/.cc-remote-env" ]; then
+  set -a; . "$CLAUDE_DIR/.cc-remote-env" 2>/dev/null || true; set +a
+fi
+
 # detach <router_abs_path> <args...>
 #   Spawn the router in a fully detached subshell, redirect all std{in,out,err}
 #   so Shortcuts doesn't hold the pipe, and exit. nohup blocks SIGHUP when the
@@ -138,8 +143,8 @@ fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] launcher: NO router found. Pin=$PIN Input=$*" \
   >> "$LOG_DIR/launcher-error.log"
-helper="$HOME/Documents/scrape-collection/scripts/orchestrator/pushover.py"
-if [ -f "$helper" ]; then
+helper="${CC_PUSHOVER_HELPER:-}"
+if [ -n "$helper" ] && [ -f "$helper" ]; then
   python3 "$helper" \
     --title "cc-imessage-control: launcher broken" \
     --message "Shortcut fired but no router on this Mac. Open Claude Code once to self-heal, or re-run /cc-imessage-control setup." \
