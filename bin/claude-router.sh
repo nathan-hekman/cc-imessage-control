@@ -127,6 +127,35 @@ if [ -z "$msg" ] && [ ! -t 0 ]; then
 fi
 log "received: $msg"
 
+# Normalize JSON-wrapped payloads. iOS Shortcuts' "Get Contents of URL"
+# action commonly POSTs a JSON body like {"phrase":"Claude eBay"} rather
+# than raw text. Both the HTTP listener and the macOS Run Shell Script
+# action hand us the body verbatim, so a JSON wrapper would otherwise
+# become the literal phrase, sail past the "Claude" keyword strip, and
+# never match a project — a silent no-op the user experiences as flakiness.
+# Unwrap the inner string from the first known text field. Plain-text input
+# and non-matching JSON pass through untouched.
+case "$msg" in
+  '{'*'}')
+    if command -v python3 >/dev/null 2>&1; then
+      _unwrapped=$(printf '%s' "$msg" | python3 -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+if isinstance(d, dict):
+    for k in ("phrase", "text", "message", "body", "msg"):
+        v = d.get(k)
+        if isinstance(v, str) and v.strip():
+            print(v)
+            sys.exit(0)
+sys.exit(1)
+' 2>/dev/null) && [ -n "$_unwrapped" ] && { msg="$_unwrapped"; log "unwrapped JSON payload → $msg"; }
+    fi
+    ;;
+esac
+
 if [ -z "$msg" ]; then
   log "empty message; nothing to do"
   exit 0
@@ -184,24 +213,30 @@ fi
 if [ "$PLATFORM" = "Darwin" ]; then
   export CC_REMOTE_SLOW_ACK_MSG="looking up '$phrase'..."
 fi
-slug=$("$INFER" "$phrase" 2>>"$LOG_FILE")
+match=$("$INFER" "$phrase" 2>>"$LOG_FILE")
 unset CC_REMOTE_SLOW_ACK_MSG
-log "infer → $slug"
+log "infer → $match"
 
-if [ -z "$slug" ] || [ "$slug" = "NONE" ]; then
+if [ -z "$match" ] || [ "$match" = "NONE" ]; then
   available=$("$LIST" | cut -d'|' -f1 | head -10 | paste -sd, -)
   reply "Couldn't match '$phrase'. Try: $available"
   pushover_notify "Claude router: no project match" "Got '$phrase'. Tried: $available" 0
   exit 0
 fi
 
-path=$("$LIST" | awk -F'|' -v s="$slug" '$1==s {print $2; exit}')
+path=$("$LIST" | awk -F'|' -v s="$match" '$1==s {print $2; exit}')
 if [ -z "$path" ]; then
-  reply "Matched '$slug' but no path found. Check build_project_list.sh."
-  log "ERROR: no path for slug $slug"
-  pushover_notify "Claude router: slug-to-path failed" "Matched '$slug' but build_project_list.sh did not return a path." 0
+  reply "Matched '$match' but no path found. Check build_project_list.sh."
+  log "ERROR: no path for slug $match"
+  pushover_notify "Claude router: slug-to-path failed" "Matched '$match' but build_project_list.sh did not return a path." 0
   exit 1
 fi
+
+# Make the remote-control slug unique per launch so each Claude session
+# gets its own cloud-registry key (mirrors skill-router behavior). Without
+# the timestamp, repeated "Claude <project>" texts all register the same
+# slug and the iOS app collapses them to a single (often stale) row.
+slug="${match}-$(date +%Y%m%d-%H%M%S)"
 
 # Launch a new terminal with `claude --remote-control "<slug>"` running.
 launch_macos() {
