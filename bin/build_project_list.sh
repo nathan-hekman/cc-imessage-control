@@ -38,6 +38,20 @@ emit_dir() {
   echo "${name}|${d%/}"
 }
 
+# Like emit_dir, but for an intentional root container: emit it as a target
+# even when its basename is in PROJECTS_EXCLUDE. The exclude only hides a name
+# from the *subdir* scan (so "Other Projects" isn't listed twice as a project);
+# it should not stop the root itself from being a deliberate cd target, e.g.
+# "Claude Other Projects" opening a session at $HOME/Documents/Other Projects.
+emit_root() {
+  local d="$1"
+  [ -d "$d" ] || return 0
+  local name
+  name="$(basename "$d")"
+  case "$name" in .*) return 0 ;; esac
+  echo "${name}|${d%/}"
+}
+
 scan_root() {
   local root="$1"
   [ -d "$root" ] || return 0
@@ -48,10 +62,11 @@ scan_root() {
 
 {
   scan_root "$PROJECTS_ROOT"
-  # Also expose the primary root itself as a selectable target (slug = its
-  # basename, e.g. "Documents"), so "Claude Documents" opens a session at the
-  # Documents root instead of failing to match any subproject.
-  emit_dir "$PROJECTS_ROOT"
+  # Also expose each scanned root itself as a selectable target (slug = its
+  # basename, e.g. "Documents" / "Other Projects"), so "Claude Documents" or
+  # "Claude Other Projects" opens a session at that root instead of failing to
+  # match any subproject. emit_root bypasses PROJECTS_EXCLUDE (see above).
+  emit_root "$PROJECTS_ROOT"
 
   if [ -n "$PROJECTS_ROOT_EXTRA" ]; then
     IFS=',' read -r -a extras <<< "$PROJECTS_ROOT_EXTRA"
@@ -60,6 +75,7 @@ scan_root() {
       extra="${extra## }"; extra="${extra%% }"
       extra="${extra/#\~/$HOME}"
       scan_root "$extra"
+      emit_root "$extra"
     done
   fi
 } | awk -F'|' '!seen[$1]++'
