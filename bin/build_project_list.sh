@@ -48,6 +48,10 @@ scan_root() {
 
 {
   scan_root "$PROJECTS_ROOT"
+  # Also expose the primary root itself as a selectable target (slug = its
+  # basename, e.g. "Documents"), so "Claude Documents" opens a session at the
+  # Documents root instead of failing to match any subproject.
+  emit_dir "$PROJECTS_ROOT"
 
   if [ -n "$PROJECTS_ROOT_EXTRA" ]; then
     IFS=',' read -r -a extras <<< "$PROJECTS_ROOT_EXTRA"
