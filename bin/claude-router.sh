@@ -84,11 +84,11 @@ PREFIX="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[cc-rc]}}"
 PLATFORM="$(uname)"
 
 # Model + reasoning effort for every remote-spawned session. Opus 4.8 at
-# "extra high" (xhigh) effort by default. Override by setting CC_LAUNCH_FLAGS
+# "medium" effort by default. Override by setting CC_LAUNCH_FLAGS
 # in ~/.claude/.cc-remote-env. These flags are word-split into the launch
 # command string below — they MUST be baked into the command, not exported,
 # because the new Terminal/tmux shell does not inherit this process's env.
-CC_LAUNCH_FLAGS="${CC_LAUNCH_FLAGS:-"--model claude-opus-4-8 --effort xhigh"}"
+CC_LAUNCH_FLAGS="${CC_LAUNCH_FLAGS:-"--model claude-opus-4-8 --effort medium"}"
 
 # reply <msg> — only sends on macOS; no-op on Linux.
 #
