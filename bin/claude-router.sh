@@ -216,6 +216,32 @@ if [ -z "$phrase" ]; then
   exit 0
 fi
 
+# Machine routing: phrase ending in "n8server" or "server" forwards to n8server
+# instead of opening locally. CC_N8SERVER_URL must be set in .cc-remote-env.
+# Example: "Claude eBay n8server" → strips suffix → forwards "claude ebay" to n8server.
+_n8server_url="${CC_N8SERVER_URL:-}"
+if [ -n "$_n8server_url" ]; then
+  case "$phrase" in
+    *\ [Nn]8[Ss][Ee][Rr][Vv][Ee][Rr]|*\ [Nn][Ss][Ee][Rr][Vv][Ee][Rr]|*\ [Ss][Ee][Rr][Vv][Ee][Rr])
+      _fwd_phrase="${phrase% *}"
+      log "routing to n8server: 'claude $_fwd_phrase'"
+      _http_code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST "$_n8server_url/trigger" \
+        -H "Authorization: Bearer ${CC_REMOTE_SECRET:-}" \
+        --data "claude $_fwd_phrase" 2>>"$LOG_FILE")
+      if [ "$_http_code" = "202" ]; then
+        log "forwarded to n8server OK"
+        reply "Routing to n8server: claude $_fwd_phrase"
+        pushover_notify "Claude -> n8server" "claude $_fwd_phrase on n8server" 0 "claude://code/"
+      else
+        log "ERROR: n8server forward HTTP $_http_code"
+        reply "ERROR: n8server forward failed (HTTP $_http_code)"
+        pushover_notify "Claude router: n8server forward failed" "HTTP $_http_code for 'claude $_fwd_phrase'" 1
+      fi
+      exit 0
+      ;;
+  esac
+fi
+
 # Slow-path ack: tell infer_project.sh to send an "[cc-rc] looking up..."
 # iMessage IF it has to fall back to the Haiku call (prefilter miss). Only
 # wire this on macOS — the iMessage sender is no-op elsewhere. The fast
