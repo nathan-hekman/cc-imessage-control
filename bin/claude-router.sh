@@ -273,7 +273,8 @@ fi
 # gets its own cloud-registry key (mirrors skill-router behavior). Without
 # the timestamp, repeated "Claude <project>" texts all register the same
 # slug and the iOS app collapses them to a single (often stale) row.
-slug="${match}-$(date +%Y%m%d-%H%M%S)"
+_machine="${CC_MACHINE_PREFIX:-$(hostname -s)}"
+slug="${_machine}-${match}-$(date +%Y%m%d-%H%M%S)"
 
 # Launch a new Terminal window running `claude --remote-control "<slug>"`.
 #

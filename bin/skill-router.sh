@@ -288,7 +288,8 @@ if [ ! -d "$project_dir" ]; then
   exit 1
 fi
 
-slug="${match}-$(date +%Y%m%d-%H%M%S)"
+_machine="${CC_MACHINE_PREFIX:-$(hostname -s)}"
+slug="${_machine}-${match}-$(date +%Y%m%d-%H%M%S)"
 launch_cmd="cd \"$project_dir\" && claude $CC_LAUNCH_FLAGS --remote-control \"$slug\" \"/$match\""
 
 if [ "$DRY_RUN" -eq 1 ]; then
