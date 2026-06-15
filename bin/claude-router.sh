@@ -83,12 +83,12 @@ LIST="$PROJECT_DIR/bin/build_project_list.sh"
 PREFIX="${REPLY_PREFIX:-${IMESSAGE_PREFIX:-[cc-rc]}}"
 PLATFORM="$(uname)"
 
-# Model + reasoning effort for every remote-spawned session. Sonnet at
-# sonnet at "high" effort by default. Override by setting CC_LAUNCH_FLAGS
-# in ~/.claude/.cc-remote-env. These flags are word-split into the launch
-# command string below — they MUST be baked into the command, not exported,
+# CC_LAUNCH_FLAGS is built dynamically after token extraction (below).
+# Set CC_LAUNCH_FLAGS in ~/.claude/.cc-remote-env to override all per-message
+# parsing and force a fleet-wide model+effort for every launched session.
+# Default: --model opus --effort high (overridable per-message via tokens).
+# These flags are word-split into the launch command — baked in, not exported,
 # because the new Terminal/tmux shell does not inherit this process's env.
-CC_LAUNCH_FLAGS="${CC_LAUNCH_FLAGS:-"--model sonnet --effort high"}"
 
 # reply <msg> — only sends on macOS; no-op on Linux.
 #
@@ -207,6 +207,17 @@ esac
 phrase=$(printf '%s' "$msg" \
   | sed -E 's/^[[:space:]]*[Cc][Ll][Aa][Uu][Dd][Ee][[:space:][:punct:]]*//' \
   | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
+
+# Strip optional "code" / "Code" sub-keyword used by the "Claude code <project>"
+# Shortcut variant (e.g. "Claude code scrape server sonnet max"). Only strip
+# when followed by more content — "Claude code" alone falls through to the menu.
+case "$phrase" in
+  [Cc][Oo][Dd][Ee]\ ?*)
+    phrase="${phrase#* }"
+    phrase=$(printf '%s' "$phrase" | sed -E 's/^[[:space:]]+//')
+    ;;
+esac
+
 log "phrase: '$phrase'"
 
 if [ -z "$phrase" ]; then
@@ -216,30 +227,105 @@ if [ -z "$phrase" ]; then
   exit 0
 fi
 
-# Machine routing: phrase ending in "n8server" or "server" forwards to n8server
-# instead of opening locally. CC_N8SERVER_URL must be set in .cc-remote-env.
-# Example: "Claude eBay n8server" → strips suffix → forwards "claude ebay" to n8server.
-_n8server_url="${CC_N8SERVER_URL:-}"
-if [ -n "$_n8server_url" ]; then
-  case "$phrase" in
-    *\ [Nn]8[Ss][Ee][Rr][Vv][Ee][Rr]|*\ [Nn][Ss][Ee][Rr][Vv][Ee][Rr]|*\ [Ss][Ee][Rr][Vv][Ee][Rr])
-      _fwd_phrase="${phrase% *}"
-      log "routing to n8server: 'claude $_fwd_phrase'"
-      _http_code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST "$_n8server_url/trigger" \
-        -H "Authorization: Bearer ${CC_REMOTE_SECRET:-}" \
-        --data "claude $_fwd_phrase" 2>>"$LOG_FILE")
-      if [ "$_http_code" = "202" ]; then
-        log "forwarded to n8server OK"
-        reply "Routing to n8server: claude $_fwd_phrase"
-        pushover_notify "Claude -> n8server" "claude $_fwd_phrase on n8server" 0 "claude://code/"
-      else
-        log "ERROR: n8server forward HTTP $_http_code"
-        reply "ERROR: n8server forward failed (HTTP $_http_code)"
-        pushover_notify "Claude router: n8server forward failed" "HTTP $_http_code for 'claude $_fwd_phrase'" 1
-      fi
-      exit 0
+# Token extraction: scan each word for optional model, effort, and machine
+# tokens. The remaining words form the project phrase for infer_project.sh.
+#
+# Supported tokens (case-insensitive):
+#   Model:   opus sonnet haiku fable   — default: opus
+#   Effort:  max high low normal       — default: high
+#   Machine: n8server → run on n8server (exact word only)
+#            n8bot    → explicit local (no-op, the default)
+#
+# Only the exact word "n8server" triggers remote routing. This intentionally
+# avoids treating project words like "scrape server" as machine targets —
+# the old suffix-based match caused "Claude scrape server" to false-route.
+#
+# Examples:
+#   "scrape server"              → project=scrape-server, opus, high, local
+#   "scrape server sonnet max"   → project=scrape-server, sonnet, max, local
+#   "ebay n8server"              → project=ebay-scrape-new forwarded to n8server
+#   "scrape server sonnet n8server" → forwarded as "scrape server sonnet" to n8server
+_model="${CC_LAUNCH_MODEL:-opus}"
+_effort="${CC_LAUNCH_EFFORT:-high}"
+_target="local"     # routing: local (N8BOT) or n8server
+_project_phrase=""  # non-semantic words → fed to infer_project.sh
+_fwd_phrase=""      # forwarded to n8server: phrase minus machine tokens
+
+for _word in $phrase; do
+  _word_l=$(printf '%s' "$_word" | tr '[:upper:]' '[:lower:]')
+  case "$_word_l" in
+    opus|sonnet|haiku|fable)
+      _model="$_word_l"
+      _fwd_phrase="$_fwd_phrase $_word"
+      ;;
+    max)
+      _effort="max"
+      _fwd_phrase="$_fwd_phrase $_word"
+      ;;
+    high|low|normal)
+      _effort="$_word_l"
+      _fwd_phrase="$_fwd_phrase $_word"
+      ;;
+    n8server)
+      _target="n8server"
+      # Machine tokens stripped from forwarded phrase so n8server doesn't re-route.
+      ;;
+    n8bot)
+      _target="local"
+      ;;
+    *)
+      _project_phrase="$_project_phrase $_word"
+      _fwd_phrase="$_fwd_phrase $_word"
       ;;
   esac
+done
+
+_project_phrase=$(printf '%s' "$_project_phrase" | sed -E 's/^ +//; s/ +$//')
+_fwd_phrase=$(printf '%s' "$_fwd_phrase" | sed -E 's/^ +//; s/ +$//')
+
+# Build launch flags from extracted (or default) model and effort.
+# A CC_LAUNCH_FLAGS value already in env (from .cc-remote-env) overrides all
+# per-message tokens — useful for enforcing a fleet-wide setting.
+if [ -n "${CC_LAUNCH_FLAGS:-}" ]; then
+  log "using CC_LAUNCH_FLAGS override: $CC_LAUNCH_FLAGS"
+else
+  CC_LAUNCH_FLAGS="--model $_model --effort $_effort"
+fi
+
+log "tokens: model=$_model effort=$_effort target=$_target project='$_project_phrase'"
+
+if [ -z "$_project_phrase" ]; then
+  available=$("$LIST" | cut -d'|' -f1 | head -10 | paste -sd, -)
+  reply "Which project? (model=$_model effort=$_effort) Try: $available"
+  log "empty project phrase after token extraction; sent menu"
+  exit 0
+fi
+
+# Machine routing: if the "n8server" token was found, forward to n8server.
+# CC_N8SERVER_URL must be set in ~/.claude/.cc-remote-env.
+# The forwarded phrase keeps model/effort tokens so n8server parses the same
+# settings; only the machine token itself is stripped (already done above).
+_n8server_url="${CC_N8SERVER_URL:-}"
+if [ "$_target" = "n8server" ]; then
+  if [ -z "$_n8server_url" ]; then
+    log "ERROR: n8server routing requested but CC_N8SERVER_URL is not set"
+    reply "n8server routing requested but CC_N8SERVER_URL is not configured. Set it in ~/.claude/.cc-remote-env."
+    exit 1
+  fi
+  log "routing to n8server: 'claude $_fwd_phrase'"
+  _http_code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST "$_n8server_url/trigger" \
+    -H "Authorization: Bearer ${CC_REMOTE_SECRET:-}" \
+    --data "claude $_fwd_phrase" 2>>"$LOG_FILE")
+  if [ "$_http_code" = "202" ]; then
+    log "forwarded to n8server OK"
+    reply "Routing to n8server: claude $_fwd_phrase ($_model/$_effort)"
+    pushover_notify "Claude -> n8server" "claude $_fwd_phrase ($_model/$_effort) on n8server" 0 "claude://code/"
+  else
+    log "ERROR: n8server forward HTTP $_http_code"
+    reply "ERROR: n8server forward failed (HTTP $_http_code)"
+    pushover_notify "Claude router: n8server forward failed" "HTTP $_http_code for 'claude $_fwd_phrase'" 1
+  fi
+  exit 0
 fi
 
 # Slow-path ack: tell infer_project.sh to send an "[cc-rc] looking up..."
@@ -248,16 +334,16 @@ fi
 # path stays silent so deterministic matches don't double up on the
 # eventual "Session started" reply.
 if [ "$PLATFORM" = "Darwin" ]; then
-  export CC_REMOTE_SLOW_ACK_MSG="looking up '$phrase'..."
+  export CC_REMOTE_SLOW_ACK_MSG="looking up '$_project_phrase'..."
 fi
-match=$("$INFER" "$phrase" 2>>"$LOG_FILE")
+match=$("$INFER" "$_project_phrase" 2>>"$LOG_FILE")
 unset CC_REMOTE_SLOW_ACK_MSG
 log "infer → $match"
 
 if [ -z "$match" ] || [ "$match" = "NONE" ]; then
   available=$("$LIST" | cut -d'|' -f1 | head -10 | paste -sd, -)
-  reply "Couldn't match '$phrase'. Try: $available"
-  pushover_notify "Claude router: no project match" "Got '$phrase'. Tried: $available" 0
+  reply "Couldn't match '$_project_phrase'. Try: $available"
+  pushover_notify "Claude router: no project match" "Got '$_project_phrase'. Tried: $available" 0
   exit 0
 fi
 
@@ -378,6 +464,6 @@ case "$PLATFORM" in
     ;;
 esac
 
-reply "Session started in $slug. Open Claude iOS: claude://code/"
-pushover_notify "Claude session: $slug" "Started in $path. Tap below to open Claude iOS." 0 "claude://code/"
-log "launched: $slug at $path"
+reply "Session started: $slug ($_model/$_effort). Open Claude iOS: claude://code/"
+pushover_notify "Claude session: $slug" "Started in $path with $_model/$_effort. Tap below to open Claude iOS." 0 "claude://code/"
+log "launched: $slug at $path with model=$_model effort=$_effort"
