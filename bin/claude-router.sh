@@ -340,19 +340,22 @@ match=$("$INFER" "$_project_phrase" 2>>"$LOG_FILE")
 unset CC_REMOTE_SLOW_ACK_MSG
 log "infer → $match"
 
+_fallback_path="${PROJECTS_ROOT:-$HOME/Documents}"
 if [ -z "$match" ] || [ "$match" = "NONE" ]; then
-  available=$("$LIST" | cut -d'|' -f1 | head -10 | paste -sd, -)
-  reply "Couldn't match '$_project_phrase'. Try: $available"
-  pushover_notify "Claude router: no project match" "Got '$_project_phrase'. Tried: $available" 0
-  exit 0
-fi
-
-path=$("$LIST" | awk -F'|' -v s="$match" '$1==s {print $2; exit}')
-if [ -z "$path" ]; then
-  reply "Matched '$match' but no path found. Check build_project_list.sh."
-  log "ERROR: no path for slug $match"
-  pushover_notify "Claude router: slug-to-path failed" "Matched '$match' but build_project_list.sh did not return a path." 0
-  exit 1
+  log "no project match for '$_project_phrase'; falling back to $_fallback_path"
+  match="$(basename "$_fallback_path")"
+  path="$_fallback_path"
+  reply "No match for '$_project_phrase' — opening $_fallback_path ($_model/$_effort)"
+  pushover_notify "Claude router: fallback to Documents" "No match for '$_project_phrase'. Opening $_fallback_path." 0 "claude://code/"
+else
+  path=$("$LIST" | awk -F'|' -v s="$match" '$1==s {print $2; exit}')
+  if [ -z "$path" ]; then
+    log "slug '$match' matched but no path; falling back to $_fallback_path"
+    match="$(basename "$_fallback_path")"
+    path="$_fallback_path"
+    reply "Matched '$match' but path missing — opening $_fallback_path ($_model/$_effort)"
+    pushover_notify "Claude router: fallback to Documents" "Slug '$match' had no path. Opening $_fallback_path." 0 "claude://code/"
+  fi
 fi
 
 # Make the remote-control slug unique per launch so each Claude session
