@@ -400,9 +400,17 @@ launch_macos() {
     win="${win}-$(date +%H%M%S)"
   fi
 
+  # Resolve the claude binary explicitly so the tmux window (which does not
+  # source .zshrc) can find it even when ~/.local/bin is not in the default PATH.
+  local _claude_bin
+  _claude_bin=$(command -v claude 2>/dev/null || true)
+  if [ -z "$_claude_bin" ]; then
+    log "ERROR: claude binary not found in PATH after router PATH export"
+    return 1
+  fi
   tmux new-window -t "$session" -n "$win" -c "$path" \
-    "claude $CC_LAUNCH_FLAGS --remote-control \"$slug\"; exec ${SHELL:-/bin/zsh}"
-  log "launched (tmux): session=$session window=$win slug=$slug"
+    "\"$_claude_bin\" $CC_LAUNCH_FLAGS --remote-control \"$slug\"; exec ${SHELL:-/bin/zsh}"
+  log "launched (tmux): session=$session window=$win slug=$slug claude=$_claude_bin"
   return 0
 }
 
