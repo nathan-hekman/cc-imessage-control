@@ -320,9 +320,25 @@ launch_macos() {
     win="${win}-$(date +%H%M%S)"
   fi
 
-  tmux new-window -t "$session" -n "$win" -c "$project_dir" \
-    "claude $CC_LAUNCH_FLAGS --remote-control \"$slug\" \"/$match\"; exec ${SHELL:-/bin/zsh}"
-  log "launched (tmux): session=$session window=$win slug=$slug skill=/$match"
+  # Resolve the claude binary explicitly (the tmux window does not source
+  # .zshrc, so ~/.local/bin may be off its PATH).
+  local _claude_bin
+  _claude_bin=$(command -v claude 2>/dev/null || true)
+  if [ -z "$_claude_bin" ]; then
+    log "ERROR: claude binary not found in PATH after router PATH export"
+    return 1
+  fi
+
+  # Target an explicit free window index — `new-window -t "$session"` (no
+  # index) creates at "current window + 1" and fails "index N in use" when
+  # that slot is taken, silently dropping the launch. highest-existing + 1
+  # is always free.
+  local _idx
+  _idx=$(tmux list-windows -t "$session" -F '#I' 2>/dev/null | sort -n | tail -1)
+  _idx=$(( ${_idx:-0} + 1 ))
+  tmux new-window -t "$session:$_idx" -n "$win" -c "$project_dir" \
+    "\"$_claude_bin\" $CC_LAUNCH_FLAGS --remote-control \"$slug\" \"/$match\"; exec ${SHELL:-/bin/zsh}"
+  log "launched (tmux): session=$session window=$win idx=$_idx slug=$slug skill=/$match"
   return 0
 }
 

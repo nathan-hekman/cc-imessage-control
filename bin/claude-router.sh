@@ -408,9 +408,17 @@ launch_macos() {
     log "ERROR: claude binary not found in PATH after router PATH export"
     return 1
   fi
-  tmux new-window -t "$session" -n "$win" -c "$path" \
+  # Target an explicit free window index. `new-window -t "$session"` (no
+  # index) creates at "current window + 1"; if the session's focused window
+  # is in the middle of the list, that index is already taken and tmux fails
+  # with "create window failed: index N in use" — silently dropping the
+  # launch. Computing highest-existing + 1 always lands on a free slot.
+  local _idx
+  _idx=$(tmux list-windows -t "$session" -F '#I' 2>/dev/null | sort -n | tail -1)
+  _idx=$(( ${_idx:-0} + 1 ))
+  tmux new-window -t "$session:$_idx" -n "$win" -c "$path" \
     "\"$_claude_bin\" $CC_LAUNCH_FLAGS --remote-control \"$slug\"; exec ${SHELL:-/bin/zsh}"
-  log "launched (tmux): session=$session window=$win slug=$slug claude=$_claude_bin"
+  log "launched (tmux): session=$session window=$win idx=$_idx slug=$slug claude=$_claude_bin"
   return 0
 }
 
