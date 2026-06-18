@@ -365,60 +365,40 @@ fi
 _machine="${CC_MACHINE_PREFIX:-$(hostname -s)}"
 slug="${_machine}-${match}-$(date +%Y%m%d-%H%M%S)"
 
-# Launch the Claude session as a WINDOW inside the shared "claude" tmux
-# session, instead of a standalone Terminal.app window.
+# Launch the Claude session in a native Terminal.app window.
 #
-# WHY: Nathan drives sessions from his phone via the tmuxy web GUI (one PWA
-# icon per machine, bound to that machine's Tailscale IP). tmuxy attaches to
-# tmux on the DEFAULT socket via control mode and shows each tmux session as
-# a group and each window as a tab. A Terminal.app window is invisible to
-# tmuxy; a tmux window in the "claude" session shows up automatically and
-# lands in the right per-device, per-purpose spot.
-#
-# This also sidesteps the old TCC/AppleEvents flakiness entirely — no
-# osascript, no LaunchServices, just a tmux server (same default socket,
-# same user) that the launchd-managed tmuxy already attaches to.
+# WHY: every iMessage-triggered session opens as a normal Terminal.app window
+# on the Mac desktop — one visible window per session, nothing hidden inside a
+# multiplexer. (The old behavior launched into a shared "claude" tmux session
+# so a phone "tmuxy" web GUI could mirror it; that indirection was confusing
+# and was removed. The iOS Claude app's --remote-control path is unaffected —
+# it registers via the cloud slug, independent of how the terminal is hosted.)
 launch_macos() {
-  if ! command -v tmux >/dev/null 2>&1; then
-    log "ERROR: tmux not found; cannot launch into the tmuxy 'claude' session"
-    return 1
-  fi
-  local session="claude"
-  local win
-  win=$(basename "$match" | tr ' .' '__')
-
-  # Ensure the shared "claude" session exists (created detached on the
-  # default socket so tmuxy sees it).
-  if ! tmux has-session -t "$session" 2>/dev/null; then
-    tmux new-session -d -s "$session" -c "$HOME/Documents"
-    tmux rename-window -t "$session:1" "shell"
-  fi
-
-  # If a window already exists for this project, disambiguate so both stay
-  # visible as separate tabs in tmuxy.
-  if tmux list-windows -t "$session" -F '#W' 2>/dev/null | grep -qx "$win"; then
-    win="${win}-$(date +%H%M%S)"
-  fi
-
-  # Resolve the claude binary explicitly so the tmux window (which does not
-  # source .zshrc) can find it even when ~/.local/bin is not in the default PATH.
+  # Resolve the claude binary explicitly so the new Terminal shell can find it
+  # even when ~/.local/bin is not on the default (non-login) PATH.
   local _claude_bin
   _claude_bin=$(command -v claude 2>/dev/null || true)
   if [ -z "$_claude_bin" ]; then
     log "ERROR: claude binary not found in PATH after router PATH export"
     return 1
   fi
-  # Target an explicit free window index. `new-window -t "$session"` (no
-  # index) creates at "current window + 1"; if the session's focused window
-  # is in the middle of the list, that index is already taken and tmux fails
-  # with "create window failed: index N in use" — silently dropping the
-  # launch. Computing highest-existing + 1 always lands on a free slot.
-  local _idx
-  _idx=$(tmux list-windows -t "$session" -F '#I' 2>/dev/null | sort -n | tail -1)
-  _idx=$(( ${_idx:-0} + 1 ))
-  tmux new-window -t "$session:$_idx" -n "$win" -c "$path" \
-    "\"$_claude_bin\" $CC_LAUNCH_FLAGS --remote-control \"$slug\"; exec ${SHELL:-/bin/zsh}"
-  log "launched (tmux): session=$session window=$win idx=$_idx slug=$slug claude=$_claude_bin"
+  # Build the shell command and hand it to osascript via argv so paths with
+  # spaces don't need AppleScript-string escaping.
+  local cmd="cd \"$path\" && \"$_claude_bin\" $CC_LAUNCH_FLAGS --remote-control \"$slug\""
+  osascript - "$cmd" <<'APPLESCRIPT'
+on run argv
+  tell application "Terminal"
+    activate
+    do script (item 1 of argv)
+  end tell
+end run
+APPLESCRIPT
+  local _rc=$?
+  if [ "$_rc" -ne 0 ]; then
+    log "ERROR: Terminal.app launch failed (osascript rc=$_rc)"
+    return 1
+  fi
+  log "launched (Terminal.app): slug=$slug claude=$_claude_bin"
   return 0
 }
 

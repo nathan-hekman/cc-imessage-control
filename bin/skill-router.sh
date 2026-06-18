@@ -301,44 +301,32 @@ fi
 log "Launching: $launch_cmd"
 
 launch_macos() {
-  # Launch into the shared "claude" tmux session as a window, so the session
-  # shows up in tmuxy (the phone GUI). See claude-router.sh launch_macos for
-  # the full rationale. tmux uses the default socket that tmuxy attaches to.
-  if ! command -v tmux >/dev/null 2>&1; then
-    log "ERROR: tmux not found; cannot launch into the tmuxy 'claude' session"
-    return 1
-  fi
-  local session="claude"
-  local win
-  win=$(basename "$match" | tr ' .' '__')
-
-  if ! tmux has-session -t "$session" 2>/dev/null; then
-    tmux new-session -d -s "$session" -c "$HOME/Documents"
-    tmux rename-window -t "$session:1" "shell"
-  fi
-  if tmux list-windows -t "$session" -F '#W' 2>/dev/null | grep -qx "$win"; then
-    win="${win}-$(date +%H%M%S)"
-  fi
-
-  # Resolve the claude binary explicitly (the tmux window does not source
-  # .zshrc, so ~/.local/bin may be off its PATH).
+  # Launch the skill session in a native Terminal.app window — one visible
+  # window per session, nothing hidden inside a multiplexer. See
+  # claude-router.sh launch_macos for the full rationale on dropping tmux/tmuxy.
   local _claude_bin
   _claude_bin=$(command -v claude 2>/dev/null || true)
   if [ -z "$_claude_bin" ]; then
     log "ERROR: claude binary not found in PATH after router PATH export"
     return 1
   fi
-
-  # Target an explicit free window index — `new-window -t "$session"` (no
-  # index) creates at "current window + 1" and fails "index N in use" when
-  # that slot is taken, silently dropping the launch. highest-existing + 1
-  # is always free.
-  local _idx
-  _idx=$(tmux list-windows -t "$session" -F '#I' 2>/dev/null | sort -n | tail -1)
-  _idx=$(( ${_idx:-0} + 1 ))
-  tmux new-window -t "$session:$_idx" -n "$win" -c "$project_dir" \
-    "\"$_claude_bin\" $CC_LAUNCH_FLAGS --remote-control \"$slug\" \"/$match\"; exec ${SHELL:-/bin/zsh}"
-  log "launched (tmux): session=$session window=$win idx=$_idx slug=$slug skill=/$match"
+  # Build the shell command and hand it to osascript via argv so paths with
+  # spaces don't need AppleScript-string escaping.
+  local cmd="cd \"$project_dir\" && \"$_claude_bin\" $CC_LAUNCH_FLAGS --remote-control \"$slug\" \"/$match\""
+  osascript - "$cmd" <<'APPLESCRIPT'
+on run argv
+  tell application "Terminal"
+    activate
+    do script (item 1 of argv)
+  end tell
+end run
+APPLESCRIPT
+  local _rc=$?
+  if [ "$_rc" -ne 0 ]; then
+    log "ERROR: Terminal.app launch failed (osascript rc=$_rc)"
+    return 1
+  fi
+  log "launched (Terminal.app): slug=$slug skill=/$match claude=$_claude_bin"
   return 0
 }
 
