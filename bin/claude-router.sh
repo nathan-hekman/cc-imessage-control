@@ -233,21 +233,31 @@ fi
 # Supported tokens (case-insensitive):
 #   Model:   opus sonnet haiku fable   — default: opus
 #   Effort:  max high low normal       — default: high
-#   Machine: n8server → run on n8server (exact word only)
-#            n8bot    → explicit local (no-op, the default)
+#   Machine: n8server → run on n8server (the default when received on n8bot)
+#            n8bot    → explicit local override (keep the session on n8bot)
 #
-# Only the exact word "n8server" triggers remote routing. This intentionally
-# avoids treating project words like "scrape server" as machine targets —
-# the old suffix-based match caused "Claude scrape server" to false-route.
+# Default machine is n8server: a message received on n8bot forwards to
+# n8server unless it carries the explicit "n8bot" token. On n8server itself
+# the default is local — never self-forward (would loop). Only the exact
+# words "n8server"/"n8bot" are treated as machine tokens, so project words
+# like "scrape server" never false-route.
 #
-# Examples:
-#   "scrape server"              → project=scrape-server, opus, high, local
-#   "scrape server sonnet max"   → project=scrape-server, sonnet, max, local
-#   "ebay n8server"              → project=ebay-scrape-new forwarded to n8server
-#   "scrape server sonnet n8server" → forwarded as "scrape server sonnet" to n8server
+# Examples (received on n8bot):
+#   "scrape server"              → project=scrape-server, opus, high, → n8server
+#   "scrape server n8bot"        → project=scrape-server, opus, high, local (n8bot)
+#   "ebay sonnet"                → project=ebay-scrape-new, sonnet, → n8server
+#   "ebay n8bot"                 → project=ebay-scrape-new, local (n8bot)
 _model="${CC_LAUNCH_MODEL:-opus}"
 _effort="${CC_LAUNCH_EFFORT:-high}"
-_target="local"     # routing: local (N8BOT) or n8server
+
+# Host-aware default: n8server runs local (no self-forward), everyone else
+# (n8bot) defaults to forwarding to n8server.
+_self_host=$(printf '%s' "${CC_MACHINE_PREFIX:-$(hostname -s)}" | tr '[:upper:]' '[:lower:]')
+if [ "$_self_host" = "n8server" ]; then
+  _target="local"
+else
+  _target="n8server"
+fi
 _project_phrase=""  # non-semantic words → fed to infer_project.sh
 _fwd_phrase=""      # forwarded to n8server: phrase minus machine tokens
 
@@ -289,7 +299,7 @@ _fwd_phrase=$(printf '%s' "$_fwd_phrase" | sed -E 's/^ +//; s/ +$//')
 if [ -n "${CC_LAUNCH_FLAGS:-}" ]; then
   log "using CC_LAUNCH_FLAGS override: $CC_LAUNCH_FLAGS"
 else
-  CC_LAUNCH_FLAGS="--model $_model --effort $_effort"
+  CC_LAUNCH_FLAGS="--model $_model --effort $_effort --dangerously-skip-permissions"
 fi
 
 log "tokens: model=$_model effort=$_effort target=$_target project='$_project_phrase'"
@@ -306,7 +316,7 @@ fi
 # The forwarded phrase keeps model/effort tokens so n8server parses the same
 # settings; only the machine token itself is stripped (already done above).
 _n8server_url="${CC_N8SERVER_URL:-}"
-if [ "$_target" = "n8server" ]; then
+if [ "$_target" = "n8server" ] && [ "$_self_host" != "n8server" ]; then
   if [ -z "$_n8server_url" ]; then
     log "ERROR: n8server routing requested but CC_N8SERVER_URL is not set"
     reply "n8server routing requested but CC_N8SERVER_URL is not configured. Set it in ~/.claude/.cc-remote-env."
