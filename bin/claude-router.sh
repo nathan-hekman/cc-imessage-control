@@ -351,33 +351,48 @@ if [ "$_target" = "n8server" ] && [ "$_self_host" != "n8server" ]; then
   exit 0
 fi
 
-# Slow-path ack: tell infer_project.sh to send an "[cc-rc] looking up..."
-# iMessage IF it has to fall back to the Haiku call (prefilter miss). Only
-# wire this on macOS — the iMessage sender is no-op elsewhere. The fast
-# path stays silent so deterministic matches don't double up on the
-# eventual "Session started" reply.
-if [ "$PLATFORM" = "Darwin" ]; then
-  export CC_REMOTE_SLOW_ACK_MSG="looking up '$_project_phrase'..."
-fi
-match=$("$INFER" "$_project_phrase" 2>>"$LOG_FILE")
-unset CC_REMOTE_SLOW_ACK_MSG
-log "infer → $match"
+# Home-directory shortcut: the project list only covers ~/Documents (+ Other
+# Projects via PROJECTS_ROOT_EXTRA), so "home"/"nathanhekman"/"~" never infer.
+# Honor them as a direct launch at $HOME, bypassing inference entirely.
+match=""
+path=""
+case "$(printf '%s' "$_project_phrase" | tr '[:upper:]' '[:lower:]')" in
+  home|home\ dir|home\ directory|"~"|"$(id -un)")
+    match="$(id -un)"
+    path="$HOME"
+    log "home-dir shortcut → launching at $path"
+    ;;
+esac
 
-_fallback_path="${PROJECTS_ROOT:-$HOME/Documents}"
-if [ -z "$match" ] || [ "$match" = "NONE" ]; then
-  log "no project match for '$_project_phrase'; falling back to $_fallback_path"
-  match="$(basename "$_fallback_path")"
-  path="$_fallback_path"
-  reply "No match for '$_project_phrase' — opening $_fallback_path ($_model/$_effort)"
-  pushover_notify "Claude router: fallback to Documents" "No match for '$_project_phrase'. Opening $_fallback_path." 0 "claude://code/"
-else
-  path=$("$LIST" | awk -F'|' -v s="$match" '$1==s {print $2; exit}')
-  if [ -z "$path" ]; then
-    log "slug '$match' matched but no path; falling back to $_fallback_path"
+if [ -z "$match" ]; then
+  # Slow-path ack: tell infer_project.sh to send an "[cc-rc] looking up..."
+  # iMessage IF it has to fall back to the Haiku call (prefilter miss). Only
+  # wire this on macOS — the iMessage sender is no-op elsewhere. The fast
+  # path stays silent so deterministic matches don't double up on the
+  # eventual "Session started" reply.
+  if [ "$PLATFORM" = "Darwin" ]; then
+    export CC_REMOTE_SLOW_ACK_MSG="looking up '$_project_phrase'..."
+  fi
+  match=$("$INFER" "$_project_phrase" 2>>"$LOG_FILE")
+  unset CC_REMOTE_SLOW_ACK_MSG
+  log "infer → $match"
+
+  _fallback_path="${PROJECTS_ROOT:-$HOME/Documents}"
+  if [ -z "$match" ] || [ "$match" = "NONE" ]; then
+    log "no project match for '$_project_phrase'; falling back to $_fallback_path"
     match="$(basename "$_fallback_path")"
     path="$_fallback_path"
-    reply "Matched '$match' but path missing — opening $_fallback_path ($_model/$_effort)"
-    pushover_notify "Claude router: fallback to Documents" "Slug '$match' had no path. Opening $_fallback_path." 0 "claude://code/"
+    reply "No match for '$_project_phrase' — opening $_fallback_path ($_model/$_effort)"
+    pushover_notify "Claude router: fallback to Documents" "No match for '$_project_phrase'. Opening $_fallback_path." 0 "claude://code/"
+  else
+    path=$("$LIST" | awk -F'|' -v s="$match" '$1==s {print $2; exit}')
+    if [ -z "$path" ]; then
+      log "slug '$match' matched but no path; falling back to $_fallback_path"
+      match="$(basename "$_fallback_path")"
+      path="$_fallback_path"
+      reply "Matched '$match' but path missing — opening $_fallback_path ($_model/$_effort)"
+      pushover_notify "Claude router: fallback to Documents" "Slug '$match' had no path. Opening $_fallback_path." 0 "claude://code/"
+    fi
   fi
 fi
 
