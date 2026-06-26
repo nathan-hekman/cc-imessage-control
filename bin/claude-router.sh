@@ -218,6 +218,19 @@ case "$phrase" in
     ;;
 esac
 
+# After stripping the "Claude"/"code" trigger prefix, the remaining phrase may
+# itself begin with the "skill" keyword (e.g. "Claude code skill update
+# financials"). The bare-"skill" dispatch near the top only fires when the raw
+# message STARTS with "skill", which on macOS needs a SEPARATE Messages
+# automation. Re-checking here lets a single "claude"-filtered automation launch
+# skills too — so a follow-up like "Claude code skill update financials" works.
+case "$phrase" in
+  [Ss][Kk][Ii][Ll][Ll]\ *|[Ss][Kk][Ii][Ll][Ll],*|[Ss][Kk][Ii][Ll][Ll]:*|[Ss][Kk][Ii][Ll][Ll].*|[Ss][Kk][Ii][Ll][Ll]-*)
+    log "keyword 'skill' detected after prefix strip → dispatching to skill-router.sh"
+    exec "$PROJECT_DIR/bin/skill-router.sh" "$phrase"
+    ;;
+esac
+
 log "phrase: '$phrase'"
 
 if [ -z "$phrase" ]; then

@@ -264,6 +264,17 @@ Walk them through, in order:
     `Run claude launcher` → make sure Pass Input is **Shortcut Input**.
 15. Done.
 
+**Skills via a bare `skill` message (optional second automation).** The
+single `claude` automation above already launches skills when the user
+prefixes the trigger — e.g. `Claude code skill update financials` (the
+router re-checks for the `skill` keyword after stripping `Claude`/`code`).
+To also fire on a bare `skill update financials` with NO `claude` prefix,
+add a SECOND Message automation identical to steps 10-15 but with **Message
+Contains: `skill`**. A Shortcuts automation allows only one Contains string,
+so the two keywords need two automations — both pointing at the same
+`Run claude launcher` shortcut. Skip this if always prefixing with `claude`
+is fine.
+
 Reference screenshots are in the repo at `docs/screenshots/01-*.jpeg`
 through `03-*.jpeg` — link them inline as you walk through.
 
