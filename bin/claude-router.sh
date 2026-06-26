@@ -196,7 +196,7 @@ esac
 # project dirs. This lets a single Siri Shortcut handle both keywords —
 # filter for "claude OR skill" and point its shell-script action here.
 case "$msg" in
-  [Ss][Kk][Ii][Ll][Ll]\ *|[Ss][Kk][Ii][Ll][Ll],*|[Ss][Kk][Ii][Ll][Ll]:*|[Ss][Kk][Ii][Ll][Ll].*|[Ss][Kk][Ii][Ll][Ll]-*)
+  [Ss][Kk][Ii][Ll][Ll]|[Ss][Kk][Ii][Ll][Ll]\ *|[Ss][Kk][Ii][Ll][Ll],*|[Ss][Kk][Ii][Ll][Ll]:*|[Ss][Kk][Ii][Ll][Ll].*|[Ss][Kk][Ii][Ll][Ll]-*)
     log "keyword 'skill' detected → dispatching to skill-router.sh"
     exec "$PROJECT_DIR/bin/skill-router.sh" "$msg"
     ;;
@@ -225,7 +225,7 @@ esac
 # automation. Re-checking here lets a single "claude"-filtered automation launch
 # skills too — so a follow-up like "Claude code skill update financials" works.
 case "$phrase" in
-  [Ss][Kk][Ii][Ll][Ll]\ *|[Ss][Kk][Ii][Ll][Ll],*|[Ss][Kk][Ii][Ll][Ll]:*|[Ss][Kk][Ii][Ll][Ll].*|[Ss][Kk][Ii][Ll][Ll]-*)
+  [Ss][Kk][Ii][Ll][Ll]|[Ss][Kk][Ii][Ll][Ll]\ *|[Ss][Kk][Ii][Ll][Ll],*|[Ss][Kk][Ii][Ll][Ll]:*|[Ss][Kk][Ii][Ll][Ll].*|[Ss][Kk][Ii][Ll][Ll]-*)
     log "keyword 'skill' detected after prefix strip → dispatching to skill-router.sh"
     exec "$PROJECT_DIR/bin/skill-router.sh" "$phrase"
     ;;
