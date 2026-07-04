@@ -29,9 +29,12 @@
 #               and do NOT send confirmation. For offline testing.
 #
 # Extending: edit CMD_NAMES + CMD_DIRS + alias_to_cmd() below to add commands
-# from other plugins. A future version may scan
-# ~/.claude/plugins/cache/*/*/commands/*.md and ~/.claude/settings.json's
-# extraKnownMarketplaces for source paths automatically.
+# from OTHER plugins (or to give a scrape-collection skill a nicer project dir
+# or alias). You do NOT need to hand-wire scrape-collection skills anymore —
+# every skill + slash command in the scrape-collection plugin is auto-registered
+# at startup by register_scrape_collection_skills() (see below), so a brand-new
+# skill such as `collection-advisor` is reachable over iMessage the moment its
+# file exists. Hand-wired CMD_NAMES entries still win for dir/alias overrides.
 
 set -uo pipefail
 
@@ -145,6 +148,54 @@ CMD_DIRS=(
   "$HOME/Documents/scrape-collection"
   "$HOME/Documents/Other Projects/heb-shopping-skill"
 )
+
+# ---------------------------------------------------- dynamic skill discovery
+#
+# Auto-register EVERY skill and slash command in the scrape-collection plugin
+# so newly-created skills reach iMessage the instant their file lands — no
+# edit to this router required. This is what makes "skill collection advisor"
+# work the moment ~/Documents/scrape-collection/skills/collection-advisor/
+# exists, without touching CMD_NAMES.
+#
+# Sources, unioned + deduped:
+#   - commands/<slug>.md         (real slash commands)
+#   - skills/<slug>/SKILL.md     (skills exposed as /<slug>; _-prefixed
+#                                 support dirs like _shared are skipped)
+# Anything already hand-wired above is left alone so its custom dir/alias wins.
+# Override the scanned plugin dir with CC_SCRAPE_COLLECTION_DIR.
+SC_DIR="${CC_SCRAPE_COLLECTION_DIR:-$HOME/Documents/scrape-collection}"
+
+_already_registered() {
+  local needle="$1" c
+  for c in "${CMD_NAMES[@]}"; do
+    [ "$c" = "$needle" ] && return 0
+  done
+  return 1
+}
+
+register_scrape_collection_skills() {
+  [ -d "$SC_DIR" ] || return 0
+  local f d b slug
+  if [ -d "$SC_DIR/commands" ]; then
+    for f in "$SC_DIR/commands"/*.md; do
+      [ -f "$f" ] || continue
+      b="$(basename "$f")"; slug="${b%.md}"
+      _already_registered "$slug" && continue
+      CMD_NAMES+=("$slug"); CMD_DIRS+=("$SC_DIR")
+    done
+  fi
+  if [ -d "$SC_DIR/skills" ]; then
+    for d in "$SC_DIR/skills"/*/; do
+      [ -d "$d" ] || continue
+      b="$(basename "$d")"
+      case "$b" in _*) continue ;; esac
+      [ -f "$d/SKILL.md" ] || continue
+      _already_registered "$b" && continue
+      CMD_NAMES+=("$b"); CMD_DIRS+=("$SC_DIR")
+    done
+  fi
+}
+register_scrape_collection_skills
 
 # Pure-function alias map. Returns canonical command name or empty string.
 alias_to_cmd() {

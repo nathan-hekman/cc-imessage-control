@@ -141,9 +141,20 @@ dispatches `skill` → `bin/skill-router.sh`. Use ONE Shortcut whose
 iMessage filter matches "Claude" OR "skill" — point its shell-script
 step at `bin/claude-router.sh "$1"` and you're done.
 
-To add a `skill` keyword for your own plugin's command, edit
+**Every scrape-collection skill is auto-wired.** `bin/skill-router.sh`
+scans `~/Documents/scrape-collection/{commands/*.md,skills/*/SKILL.md}`
+at startup and registers every one, so `skill purchase ebay`,
+`skill accept offers`, `skill stack health`, etc. all work with no
+config — and a **brand-new skill routes the instant its file exists**.
+Create `skills/collection-advisor/SKILL.md`, then text
+`skill collection advisor` → it fires `/collection-advisor`. No router
+edit. (Point the scan elsewhere with `CC_SCRAPE_COLLECTION_DIR`.)
+
+To add a `skill` keyword for a DIFFERENT plugin (or to override the
+project dir / add a short alias for a scrape-collection skill), edit
 `CMD_NAMES`, `CMD_DIRS`, and `alias_to_cmd()` in
-[`bin/skill-router.sh`](bin/skill-router.sh).
+[`bin/skill-router.sh`](bin/skill-router.sh). Hand-wired entries win
+over the auto-scan.
 
 New project? Just `mkdir` it under your projects root. No config change.
 

@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "cc-imessage-control",
-      "version": "0.16.3",
+      "version": "0.17.0",
       "description": "Spin up Claude Code Remote Control sessions on your Mac (via iMessage Shortcuts) or Linux box (via SSH over Tailscale; HTTP listener fallback). Two keywords: 'Claude <project>' opens a project; 'skill <phrase>' fires a plugin slash command. Ships router scripts, an interactive setup wizard, and a ready-made iPhone SSH shortcut.",
       "source": "./",
       "category": "productivity"
