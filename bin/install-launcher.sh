@@ -107,6 +107,17 @@ fi
 detach() {
   local router="$1"
   shift
+  # Read-only menu fetch: the iOS "Card Skill" Shortcut SSHes `list` to build
+  # its tap-menu and NEEDS the router's stdout back. Daemonizing would send it
+  # to launcher.log and hand the Shortcut an empty menu, so run `list` in the
+  # FOREGROUND and pass its output straight through. Exact first-arg match only,
+  # so a project/phrase that merely contains "list" still launches detached.
+  case "${1:-}" in
+    list|List|LIST|--list)
+      "$router" "$@"
+      exit $?
+      ;;
+  esac
   (
     nohup "$router" "$@" </dev/null >>"$LOG_DIR/launcher.log" 2>&1 &
     disown 2>/dev/null || true
