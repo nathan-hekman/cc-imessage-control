@@ -179,18 +179,48 @@ fi
 # on, so the menu still populates; the actual launch is re-checked below.
 case "$(printf '%s' "$msg" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')" in
   list|"skill list"|"claude list"|"list skills"|"list all")
-    log "list command → emitting skills + projects"
-    # Skills first (this Shortcut's primary purpose), each tagged "skill: " so
-    # the tap-back is self-routing; then projects tagged "project: ". The phone
-    # sends whichever line is tapped back verbatim — routing happens below.
-    "$PROJECT_DIR/bin/skill-router.sh" --list 2>/dev/null | while IFS= read -r _s; do
-      [ -n "$_s" ] && echo "skill: $_s"
+    log "list command → emitting grouped menu"
+    # The iOS "Card Skill" Shortcut shows this when the free-text box is left
+    # blank. Clean, spaced skill names GROUPED under category headers, then a
+    # short whitelist of real projects — no raw slugs, no junk dirs. Every line
+    # is sent back prefixed "pick " by the Shortcut, and `pick` (below) resolves
+    # skill-first then project, so the labels need no skill:/project: tag. A
+    # tapped "──  Header  ──" line simply resolves to nothing (harmless).
+    #
+    # cat_of <skill-slug> → its category bucket. Unmapped/new skills fall to
+    # "Other" so a brand-new skill still appears (just ungrouped) until sorted.
+    cat_of() {
+      case "$1" in
+        daily-collection-summary|collection-expert|collection-advisor|accept-offers|cardhunt|collector-nerd|stack-health|skill-retro|scrape-retro) echo "Collection" ;;
+        ebay|ebay-lookup|purchase-ebay|make-offer|ebay-payment-fix|morning-deals-headline) echo "eBay" ;;
+        cy-vault-ship|cy-marketplace-search) echo "Courtyard" ;;
+        market-price|market-news|pricecharting) echo "Market" ;;
+        update-financials) echo "Money" ;;
+        *) echo "Other" ;;
+      esac
+    }
+    _skills="$("$PROJECT_DIR/bin/skill-router.sh" --list 2>/dev/null)"
+    for _grp in Collection eBay Courtyard Market Money Other; do
+      _printed=0
+      while IFS= read -r _s; do
+        [ -n "$_s" ] || continue
+        [ "$(cat_of "$_s")" = "$_grp" ] || continue
+        if [ "$_printed" -eq 0 ]; then echo "──  $_grp  ──"; _printed=1; fi
+        echo "$_s" | tr '-' ' '
+      done <<EOF_SKILLS
+$_skills
+EOF_SKILLS
     done
-    if [ -x "$LIST" ]; then
-      "$LIST" 2>/dev/null | while IFS='|' read -r _slug _path; do
-        [ -n "$_slug" ] && echo "project: $_slug"
-      done
-    fi
+    # Projects: curated whitelist only (override with CC_MENU_PROJECTS, a
+    # comma-separated slug list). Keeps ~/Documents junk out of the menu.
+    _projects="${CC_MENU_PROJECTS:-scrape-server,ebay-scrape-new,cy-scraper-new,scrape-collection,cc-imessage-control}"
+    echo "──  Projects  ──"
+    _oldifs="$IFS"; IFS=','
+    for _p in $_projects; do
+      _p="$(printf '%s' "$_p" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+      [ -n "$_p" ] && echo "$_p"
+    done
+    IFS="$_oldifs"
     exit 0
     ;;
 esac
@@ -214,15 +244,22 @@ case "$msg" in
     ;;
 esac
 
-# Menu tap-back: a "project: <slug>" line chosen from the `list` menu is
-# rewritten to the normal "Claude <slug>" project phrase so it flows through
-# the project-inference path below. ("skill: <name>" needs no rewrite — the
-# skill keyword case just below already matches the "skill" prefix.)
+# `pick <phrase>` — the verb the Card Skill Shortcut sends for BOTH a typed
+# free-text answer and a tapped menu label. Resolve skill-FIRST (silent
+# --match probe), else fall through to project inference. This keeps the menu
+# labels clean (no skill:/project: tags) while staying unambiguous: a real
+# skill name runs the skill; anything else (a project name, a header line) is
+# handled as a project phrase below. Only bare "pick" gets this treatment, so
+# the explicit "Claude <project>" and "skill <name>" keywords are untouched.
 case "$msg" in
-  [Pp]roject:*)
-    _proj="$(printf '%s' "$msg" | sed -E 's/^[Pp]roject:[[:space:]]*//; s/[[:space:]]+$//')"
-    msg="Claude $_proj"
-    log "project menu pick → rewritten to '$msg'"
+  [Pp]ick|[Pp]ick\ *|[Pp]ick,*|[Pp]ick:*|[Pp]ick.*)
+    _pick="$(printf '%s' "$msg" | sed -E 's/^[Pp]ick[[:space:],:.]*//; s/[[:space:]]+$//')"
+    if [ -n "$_pick" ] && "$PROJECT_DIR/bin/skill-router.sh" --match "skill $_pick" >/dev/null 2>&1; then
+      log "pick → skill match for '$_pick' → skill-router"
+      exec "$PROJECT_DIR/bin/skill-router.sh" "skill $_pick"
+    fi
+    msg="Claude $_pick"
+    log "pick → no skill match; treating as project phrase '$_pick'"
     ;;
 esac
 

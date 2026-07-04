@@ -237,6 +237,15 @@ if [ "${1:-}" = "--list" ]; then
   exit 0
 fi
 
+# --match: silent resolver used by claude-router.sh's `pick` verb to decide
+# "is this phrase a skill?". Prints the resolved skill name + exit 0 on a hit,
+# or exit 1 with NO output and NO iMessage/Pushover side effects on a miss.
+MATCH_ONLY=0
+if [ "${1:-}" = "--match" ]; then
+  MATCH_ONLY=1
+  shift
+fi
+
 DRY_RUN=0
 if [ "${1:-}" = "--dry-run" ]; then
   DRY_RUN=1
@@ -260,7 +269,7 @@ fi
 # removes it. Skip processing when present. (Skip the check in dry-run
 # so testing still resolves matches.)
 DISABLE_FLAG="$CLAUDE_DIR/.cc-remote-disabled"
-if [ "$DRY_RUN" -eq 0 ] && [ -f "$DISABLE_FLAG" ]; then
+if [ "$DRY_RUN" -eq 0 ] && [ "$MATCH_ONLY" -eq 0 ] && [ -f "$DISABLE_FLAG" ]; then
   log "ignored: cc-imessage-control is OFF (flag at $DISABLE_FLAG)"
   reply "cc-imessage-control is OFF — run /cc-imessage-control on to re-enable"
   pushover_notify "cc-imessage-control OFF — text ignored" "Got: '$raw_input'. Run /cc-imessage-control on to re-enable." 0
@@ -281,6 +290,7 @@ phrase_norm="$(echo "$phrase" | tr '[:upper:]' '[:lower:]' | tr -s ' ' | sed -E 
 log "Phrase after strip: '$phrase_norm'"
 
 if [ -z "$phrase_norm" ]; then
+  [ "$MATCH_ONLY" -eq 1 ] && exit 1
   available="$(printf '%s, ' "${CMD_NAMES[@]}" | sed 's/, $//')"
   reply "skill router: nothing followed 'skill'. Try: $available"
   exit 1
@@ -330,11 +340,18 @@ if [ -z "$match" ]; then
 fi
 
 if [ -z "$match" ]; then
+  [ "$MATCH_ONLY" -eq 1 ] && exit 1
   log "ERROR: no command matched '$phrase_norm'"
   available="$(printf '%s, ' "${CMD_NAMES[@]}" | sed 's/, $//')"
   reply "skill router: no command matched '$phrase'. Available: $available"
   pushover_notify "skill router: no match" "Got 'skill $phrase'. Tried these: $available" 0
   exit 1
+fi
+
+# --match probe: resolved to a real skill — report it and stop (no launch).
+if [ "$MATCH_ONLY" -eq 1 ]; then
+  echo "$match"
+  exit 0
 fi
 
 # -------------------------------------------------------------------- launch
