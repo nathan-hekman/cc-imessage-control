@@ -229,6 +229,14 @@ cmd_index() {
 }
 
 # -------------------------------------------------------------------- input
+# --list: print every registered skill name (one per line) and exit. Used by
+# claude-router.sh's `list` command to build the iOS Shortcut tap-menu. Runs
+# AFTER register_scrape_collection_skills(), so brand-new skills are included.
+if [ "${1:-}" = "--list" ]; then
+  printf '%s\n' "${CMD_NAMES[@]}"
+  exit 0
+fi
+
 DRY_RUN=0
 if [ "${1:-}" = "--dry-run" ]; then
   DRY_RUN=1

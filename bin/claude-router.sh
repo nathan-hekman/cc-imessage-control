@@ -172,6 +172,29 @@ if [ -z "$msg" ]; then
   exit 0
 fi
 
+# List command: `list` (case-insensitive, optional "skill"/"claude" filler)
+# prints the tap-menu the iOS "Card Skill" Shortcut shows when run empty —
+# every runnable skill, then every project (prefixed "project: "). One entry
+# per line on stdout, nothing launched. Answered even when the kill-switch is
+# on, so the menu still populates; the actual launch is re-checked below.
+case "$(printf '%s' "$msg" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')" in
+  list|"skill list"|"claude list"|"list skills"|"list all")
+    log "list command → emitting skills + projects"
+    # Skills first (this Shortcut's primary purpose), each tagged "skill: " so
+    # the tap-back is self-routing; then projects tagged "project: ". The phone
+    # sends whichever line is tapped back verbatim — routing happens below.
+    "$PROJECT_DIR/bin/skill-router.sh" --list 2>/dev/null | while IFS= read -r _s; do
+      [ -n "$_s" ] && echo "skill: $_s"
+    done
+    if [ -x "$LIST" ]; then
+      "$LIST" 2>/dev/null | while IFS='|' read -r _slug _path; do
+        [ -n "$_slug" ] && echo "project: $_slug"
+      done
+    fi
+    exit 0
+    ;;
+esac
+
 # Master kill-switch. `/cc-imessage-control off` creates this file; `on`
 # removes it. Skip ALL processing when present so neither claude-router
 # nor skill-router fire.
@@ -188,6 +211,18 @@ case "$msg" in
   "$PREFIX"*)
     log "ignored: matches reply prefix"
     exit 0
+    ;;
+esac
+
+# Menu tap-back: a "project: <slug>" line chosen from the `list` menu is
+# rewritten to the normal "Claude <slug>" project phrase so it flows through
+# the project-inference path below. ("skill: <name>" needs no rewrite — the
+# skill keyword case just below already matches the "skill" prefix.)
+case "$msg" in
+  [Pp]roject:*)
+    _proj="$(printf '%s' "$msg" | sed -E 's/^[Pp]roject:[[:space:]]*//; s/[[:space:]]+$//')"
+    msg="Claude $_proj"
+    log "project menu pick → rewritten to '$msg'"
     ;;
 esac
 
