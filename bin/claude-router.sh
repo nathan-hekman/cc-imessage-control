@@ -383,46 +383,46 @@ if [ -z "$_project_phrase" ]; then
 fi
 
 # Machine routing (SYMMETRIC). If the resolved target Mac isn't THIS machine,
-# forward the launch to it over SSH and exit. Keys are passwordless both ways;
-# the remote launcher detaches immediately so this returns in well under a
-# second. The forwarded phrase carries an explicit machine token for the target
-# so the remote pins to itself and never bounces the launch back (loop guard).
+# forward the launch to it over the peer's HTTP listener (the same
+# cc_imessage_listen.py service both Macs already run for the iMessage/Shortcut
+# path) and exit. This needs NO ssh-agent and NO extra keys — it reuses the
+# shared CC_REMOTE_SECRET. The listener returns 202 immediately and runs the
+# launch in its own launchd context, so this call is sub-second.
+#
+# Per-target listener URLs come from ~/.claude/.cc-remote-env:
+#   CC_N8SERVER_URL  (e.g. http://<n8server-tailscale-ip>:8923)
+#   CC_N8BOT_URL     (e.g. http://<n8bot-tailscale-ip>:8923)
+#
+# The forwarded phrase carries an explicit machine token for the target so the
+# remote pins to itself and never bounces the launch back here (loop guard).
 if [ "$_target" != "$_self_host" ]; then
   _fwd_phrase=$(printf '%s' "$_project_phrase $_model $_effort $_target" \
     | sed -E 's/  +/ /g; s/^ +//; s/ +$//')
   case "$_target" in
-    n8server) _ssh_target="${CC_SSH_N8SERVER:-n8server}" ;;
-    n8bot)    _ssh_target="${CC_SSH_N8BOT:-n8bot}" ;;
-    *)        _ssh_target="$_target" ;;
+    n8server) _fwd_url="${CC_N8SERVER_URL:-}" ;;
+    n8bot)    _fwd_url="${CC_N8BOT_URL:-}" ;;
+    *)        _fwd_url="" ;;
   esac
-  log "routing to $_target via ssh $_ssh_target: 'claude $_fwd_phrase'"
-  if ssh -o BatchMode=yes -o ConnectTimeout=8 "$_ssh_target" \
-       "bash ~/.claude/cc-imessage-control-launcher.sh \"claude $_fwd_phrase\"" \
-       >>"$LOG_FILE" 2>&1; then
-    log "forwarded to $_target OK (ssh)"
-    reply "Routing to $_target: claude $_fwd_phrase ($_model/$_effort)"
-    pushover_notify "Claude -> $_target" "claude $_fwd_phrase ($_model/$_effort) on $_target" 0 "claude://code/"
+  if [ -z "$_fwd_url" ]; then
+    _url_var="CC_$(printf '%s' "$_target" | tr '[:lower:]' '[:upper:]')_URL"
+    log "ERROR: no forward URL for $_target (set $_url_var in ~/.claude/.cc-remote-env)"
+    reply "Can't reach $_target — no listener URL configured ($_url_var)."
+    pushover_notify "Claude router: $_target not configured" "Set $_url_var in ~/.claude/.cc-remote-env to forward to $_target." 0
     exit 0
   fi
-  # SSH failed. For n8server, fall back to the legacy HTTP listener if a URL is
-  # configured (back-compat with installs predating SSH forwarding).
-  _n8server_url="${CC_N8SERVER_URL:-}"
-  if [ "$_target" = "n8server" ] && [ -n "$_n8server_url" ]; then
-    log "ssh forward failed; trying legacy HTTP forward to $_n8server_url"
-    _http_code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST "$_n8server_url/trigger" \
-      -H "Authorization: Bearer ${CC_REMOTE_SECRET:-}" \
-      --data "claude $_fwd_phrase" 2>>"$LOG_FILE")
-    if [ "$_http_code" = "202" ]; then
-      log "forwarded to n8server OK (http fallback)"
-      reply "Routing to n8server: claude $_fwd_phrase ($_model/$_effort)"
-      pushover_notify "Claude -> n8server" "claude $_fwd_phrase ($_model/$_effort) on n8server" 0 "claude://code/"
-      exit 0
-    fi
-    log "ERROR: http fallback also failed (HTTP $_http_code)"
+  log "routing to $_target via $_fwd_url: 'claude $_fwd_phrase'"
+  _http_code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST "$_fwd_url/trigger" \
+    -H "Authorization: Bearer ${CC_REMOTE_SECRET:-}" \
+    --data "claude $_fwd_phrase" --max-time 12 2>>"$LOG_FILE")
+  if [ "$_http_code" = "202" ]; then
+    log "forwarded to $_target OK (http $_http_code)"
+    reply "Routing to $_target: claude $_fwd_phrase ($_model/$_effort)"
+    pushover_notify "Claude -> $_target" "claude $_fwd_phrase ($_model/$_effort) on $_target" 0 "claude://code/"
+  else
+    log "ERROR: forward to $_target failed (HTTP $_http_code)"
+    reply "ERROR: forward to $_target failed (HTTP $_http_code)"
+    pushover_notify "Claude router: $_target forward failed" "HTTP $_http_code forwarding 'claude $_fwd_phrase' to $_target" 0
   fi
-  log "ERROR: forward to $_target failed"
-  reply "ERROR: forward to $_target failed"
-  pushover_notify "Claude router: $_target forward failed" "Could not reach $_target for 'claude $_fwd_phrase'" 1
   exit 0
 fi
 
