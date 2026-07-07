@@ -1,6 +1,6 @@
 {
   "name": "cc-imessage-control",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "description": "Text yourself 'Claude <projectname>' OR 'skill <command>'. Your Mac (iMessage) or Linux box opens a new local Claude Code session with /remote-control enabled — 'Claude' mode opens the project; 'skill' mode runs a plugin's slash command in its project dir. Drive both from the Claude mobile app. No chat.db reading.",
   "author": {
     "name": "Nathan Hekman",

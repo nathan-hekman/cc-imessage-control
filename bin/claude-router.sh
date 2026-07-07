@@ -315,68 +315,54 @@ fi
 # Token extraction: scan each word for optional model, effort, and machine
 # tokens. The remaining words form the project phrase for infer_project.sh.
 #
-# Supported tokens (case-insensitive):
-#   Model:   opus sonnet haiku fable   — default: opus
-#   Effort:  max high low normal       — default: high
-#   Machine: n8server → run on n8server (the default when received on n8bot)
-#            n8bot    → explicit local override (keep the session on n8bot)
+# Supported tokens (case-insensitive), with fuzzy synonyms so a natural
+# sentence works, not only exact keywords:
+#   Model:   opus sonnet haiku fable   (+ fast→haiku, smart/best→opus)  default opus
+#   Effort:  max high low normal                                        default high
+#   Machine: n8server (+ n8s prod production)  → run on n8server
+#            n8bot    (+ bot andi andrea)      → run on n8bot
 #
-# Default machine is n8server: a message received on n8bot forwards to
-# n8server unless it carries the explicit "n8bot" token. On n8server itself
-# the default is local — never self-forward (would loop). Only the exact
-# words "n8server"/"n8bot" are treated as machine tokens, so project words
-# like "scrape server" never false-route.
+# Routing is SYMMETRIC: whichever Mac receives the message, a machine token
+# naming the OTHER Mac forwards the launch there over SSH (passwordless both
+# ways). With no machine token the default is CC_DEFAULT_HOST (n8server), so a
+# bare phrase opens on the always-on Mac. The project itself is still resolved
+# by infer_project.sh (Haiku) from arbitrary phrasing; only the closed sets
+# (2 Macs, 4 models) use the synonym table.
 #
-# Examples (received on n8bot):
-#   "scrape server"              → project=scrape-server, opus, high, → n8server
-#   "scrape server n8bot"        → project=scrape-server, opus, high, local (n8bot)
-#   "ebay sonnet"                → project=ebay-scrape-new, sonnet, → n8server
-#   "ebay n8bot"                 → project=ebay-scrape-new, local (n8bot)
+# NOTE: the bare word "server" is deliberately NOT a machine token — it would
+# collide with the scrape-server project. Only the tokens listed above route.
+#
+# Examples:
+#   "scrape server"              → project=scrape-server, opus/high, on n8server (default)
+#   "scrape server n8bot"        → project=scrape-server, opus/high, on n8bot
+#   "documents n8bot"            → ~/Documents, on n8bot
+#   "courtyard on the bot fast"  → cy-scraper-new, haiku, on n8bot
+#   "ebay sonnet"                → project=ebay-scrape-new, sonnet, on n8server
 _model="${CC_LAUNCH_MODEL:-opus}"
 _effort="${CC_LAUNCH_EFFORT:-high}"
 
-# Host-aware default: n8server runs local (no self-forward), everyone else
-# (n8bot) defaults to forwarding to n8server.
 _self_host=$(printf '%s' "${CC_MACHINE_PREFIX:-$(hostname -s)}" | tr '[:upper:]' '[:lower:]')
-if [ "$_self_host" = "n8server" ]; then
-  _target="local"
-else
-  _target="n8server"
-fi
+# Default target Mac when no machine token is present. n8server is the
+# always-on production runtime, so bare phrases land there.
+_target="${CC_DEFAULT_HOST:-n8server}"
 _project_phrase=""  # non-semantic words → fed to infer_project.sh
-_fwd_phrase=""      # forwarded to n8server: phrase minus machine tokens
 
 for _word in $phrase; do
-  _word_l=$(printf '%s' "$_word" | tr '[:upper:]' '[:lower:]')
+  _word_l=$(printf '%s' "$_word" | tr '[:upper:]' '[:lower:]' | sed -E 's/[[:punct:]]+$//')
   case "$_word_l" in
-    opus|sonnet|haiku|fable)
-      _model="$_word_l"
-      _fwd_phrase="$_fwd_phrase $_word"
-      ;;
-    max)
-      _effort="max"
-      _fwd_phrase="$_fwd_phrase $_word"
-      ;;
-    high|low|normal)
-      _effort="$_word_l"
-      _fwd_phrase="$_fwd_phrase $_word"
-      ;;
-    n8server)
-      _target="n8server"
-      # Machine tokens stripped from forwarded phrase so n8server doesn't re-route.
-      ;;
-    n8bot)
-      _target="local"
-      ;;
-    *)
-      _project_phrase="$_project_phrase $_word"
-      _fwd_phrase="$_fwd_phrase $_word"
-      ;;
+    opus|sonnet|haiku|fable)      _model="$_word_l" ;;
+    fast)                         _model="haiku" ;;
+    smart|best)                   _model="opus" ;;
+    max)                          _effort="max" ;;
+    high|low|normal)              _effort="$_word_l" ;;
+    n8server|n8s|prod|production) _target="n8server" ;;
+    n8bot|bot|andi|andrea)        _target="n8bot" ;;
+    *) _project_phrase="$_project_phrase $_word" ;;
   esac
 done
 
 _project_phrase=$(printf '%s' "$_project_phrase" | sed -E 's/^ +//; s/ +$//')
-_fwd_phrase=$(printf '%s' "$_fwd_phrase" | sed -E 's/^ +//; s/ +$//')
+_target=$(printf '%s' "$_target" | tr '[:upper:]' '[:lower:]')
 
 # Build launch flags from extracted (or default) model and effort.
 # A CC_LAUNCH_FLAGS value already in env (from .cc-remote-env) overrides all
@@ -396,30 +382,47 @@ if [ -z "$_project_phrase" ]; then
   exit 0
 fi
 
-# Machine routing: if the "n8server" token was found, forward to n8server.
-# CC_N8SERVER_URL must be set in ~/.claude/.cc-remote-env.
-# The forwarded phrase keeps model/effort tokens so n8server parses the same
-# settings; only the machine token itself is stripped (already done above).
-_n8server_url="${CC_N8SERVER_URL:-}"
-if [ "$_target" = "n8server" ] && [ "$_self_host" != "n8server" ]; then
-  if [ -z "$_n8server_url" ]; then
-    log "ERROR: n8server routing requested but CC_N8SERVER_URL is not set"
-    reply "n8server routing requested but CC_N8SERVER_URL is not configured. Set it in ~/.claude/.cc-remote-env."
-    exit 1
+# Machine routing (SYMMETRIC). If the resolved target Mac isn't THIS machine,
+# forward the launch to it over SSH and exit. Keys are passwordless both ways;
+# the remote launcher detaches immediately so this returns in well under a
+# second. The forwarded phrase carries an explicit machine token for the target
+# so the remote pins to itself and never bounces the launch back (loop guard).
+if [ "$_target" != "$_self_host" ]; then
+  _fwd_phrase=$(printf '%s' "$_project_phrase $_model $_effort $_target" \
+    | sed -E 's/  +/ /g; s/^ +//; s/ +$//')
+  case "$_target" in
+    n8server) _ssh_target="${CC_SSH_N8SERVER:-n8server}" ;;
+    n8bot)    _ssh_target="${CC_SSH_N8BOT:-n8bot}" ;;
+    *)        _ssh_target="$_target" ;;
+  esac
+  log "routing to $_target via ssh $_ssh_target: 'claude $_fwd_phrase'"
+  if ssh -o BatchMode=yes -o ConnectTimeout=8 "$_ssh_target" \
+       "bash ~/.claude/cc-imessage-control-launcher.sh \"claude $_fwd_phrase\"" \
+       >>"$LOG_FILE" 2>&1; then
+    log "forwarded to $_target OK (ssh)"
+    reply "Routing to $_target: claude $_fwd_phrase ($_model/$_effort)"
+    pushover_notify "Claude -> $_target" "claude $_fwd_phrase ($_model/$_effort) on $_target" 0 "claude://code/"
+    exit 0
   fi
-  log "routing to n8server: 'claude $_fwd_phrase'"
-  _http_code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST "$_n8server_url/trigger" \
-    -H "Authorization: Bearer ${CC_REMOTE_SECRET:-}" \
-    --data "claude $_fwd_phrase" 2>>"$LOG_FILE")
-  if [ "$_http_code" = "202" ]; then
-    log "forwarded to n8server OK"
-    reply "Routing to n8server: claude $_fwd_phrase ($_model/$_effort)"
-    pushover_notify "Claude -> n8server" "claude $_fwd_phrase ($_model/$_effort) on n8server" 0 "claude://code/"
-  else
-    log "ERROR: n8server forward HTTP $_http_code"
-    reply "ERROR: n8server forward failed (HTTP $_http_code)"
-    pushover_notify "Claude router: n8server forward failed" "HTTP $_http_code for 'claude $_fwd_phrase'" 1
+  # SSH failed. For n8server, fall back to the legacy HTTP listener if a URL is
+  # configured (back-compat with installs predating SSH forwarding).
+  _n8server_url="${CC_N8SERVER_URL:-}"
+  if [ "$_target" = "n8server" ] && [ -n "$_n8server_url" ]; then
+    log "ssh forward failed; trying legacy HTTP forward to $_n8server_url"
+    _http_code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST "$_n8server_url/trigger" \
+      -H "Authorization: Bearer ${CC_REMOTE_SECRET:-}" \
+      --data "claude $_fwd_phrase" 2>>"$LOG_FILE")
+    if [ "$_http_code" = "202" ]; then
+      log "forwarded to n8server OK (http fallback)"
+      reply "Routing to n8server: claude $_fwd_phrase ($_model/$_effort)"
+      pushover_notify "Claude -> n8server" "claude $_fwd_phrase ($_model/$_effort) on n8server" 0 "claude://code/"
+      exit 0
+    fi
+    log "ERROR: http fallback also failed (HTTP $_http_code)"
   fi
+  log "ERROR: forward to $_target failed"
+  reply "ERROR: forward to $_target failed"
+  pushover_notify "Claude router: $_target forward failed" "Could not reach $_target for 'claude $_fwd_phrase'" 1
   exit 0
 fi
 
