@@ -86,7 +86,7 @@ PLATFORM="$(uname)"
 # CC_LAUNCH_FLAGS is built dynamically after token extraction (below).
 # Set CC_LAUNCH_FLAGS in ~/.claude/.cc-remote-env to override all per-message
 # parsing and force a fleet-wide model+effort for every launched session.
-# Default: --model opus --effort high (overridable per-message via tokens).
+# Default: --model opus --effort low (overridable per-message via tokens).
 # These flags are word-split into the launch command — baked in, not exported,
 # because the new Terminal/tmux shell does not inherit this process's env.
 
@@ -339,7 +339,7 @@ fi
 #   "courtyard on the bot fast"  → cy-scraper-new, haiku, on n8bot
 #   "ebay sonnet"                → project=ebay-scrape-new, sonnet, on n8server
 _model="${CC_LAUNCH_MODEL:-opus}"
-_effort="${CC_LAUNCH_EFFORT:-high}"
+_effort="${CC_LAUNCH_EFFORT:-low}"
 
 _self_host=$(printf '%s' "${CC_MACHINE_PREFIX:-$(hostname -s)}" | tr '[:upper:]' '[:lower:]')
 # Default target Mac when no machine token is present. n8server is the
