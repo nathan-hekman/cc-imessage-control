@@ -289,6 +289,66 @@ phrase="$(echo "$raw_input" | sed -E 's/^[[:space:]]*[Ss][Kk][Ii][Ll][Ll][[:spac
 phrase_norm="$(echo "$phrase" | tr '[:upper:]' '[:lower:]' | tr -s ' ' | sed -E 's/^ +//; s/ +$//')"
 log "Phrase after strip: '$phrase_norm'"
 
+# ------------------------------------------------------- machine routing
+# Same symmetric routing claude-router.sh does for projects, applied to
+# skills. Without this, "skill cy vault ship n8bot" ran on whichever Mac
+# received the message and the machine token was swallowed into the skill
+# phrase, so it never even matched (found 2026-08-05).
+#
+# The token set is deliberately identical to claude-router.sh's, minus the
+# model/effort words — skill launches take their flags from CC_LAUNCH_FLAGS.
+# A skill name that legitimately contains one of these words would be
+# misread, which is why the list stays closed and short.
+_self_host=$(printf '%s' "${CC_MACHINE_PREFIX:-$(hostname -s)}" | tr '[:upper:]' '[:lower:]')
+_target="${CC_DEFAULT_HOST:-n8server}"
+_skill_phrase=""
+
+for _word in $phrase_norm; do
+  case "$_word" in
+    n8server|n8s|prod|production) _target="n8server" ;;
+    n8bot|bot|andi|andrea)        _target="n8bot" ;;
+    *) _skill_phrase="$_skill_phrase $_word" ;;
+  esac
+done
+
+_skill_phrase=$(printf '%s' "$_skill_phrase" | sed -E 's/  +/ /g; s/^ +//; s/ +$//')
+[ -n "$_skill_phrase" ] && phrase_norm="$_skill_phrase"
+log "machine token: target=$_target self=$_self_host skill='$phrase_norm'"
+
+# Forward to the peer Mac's HTTP listener when the target isn't this one.
+# --match and --dry-run are side-effect-free probes, so they resolve locally
+# and never forward. The forwarded phrase re-states the target so the remote
+# pins to itself instead of bouncing the launch back (loop guard).
+if [ "$_target" != "$_self_host" ] && [ "$MATCH_ONLY" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
+  case "$_target" in
+    n8server) _fwd_url="${CC_N8SERVER_URL:-}" ;;
+    n8bot)    _fwd_url="${CC_N8BOT_URL:-}" ;;
+    *)        _fwd_url="" ;;
+  esac
+  if [ -z "$_fwd_url" ]; then
+    _url_var="CC_$(printf '%s' "$_target" | tr '[:lower:]' '[:upper:]')_URL"
+    log "ERROR: no forward URL for $_target (set $_url_var in ~/.claude/.cc-remote-env)"
+    reply "Can't reach $_target — no listener URL configured ($_url_var)."
+    pushover_notify "Skill router: $_target not configured" "Set $_url_var in ~/.claude/.cc-remote-env to forward skills to $_target." 0
+    exit 0
+  fi
+  _fwd_phrase="skill $phrase_norm $_target"
+  log "routing to $_target via $_fwd_url: '$_fwd_phrase'"
+  _http_code=$(curl -sf -o /dev/null -w '%{http_code}' -X POST "$_fwd_url/trigger" \
+    -H "Authorization: Bearer ${CC_REMOTE_SECRET:-}" \
+    --data "$_fwd_phrase" --max-time 12 2>>"$LOG_FILE")
+  if [ "$_http_code" = "202" ]; then
+    log "forwarded to $_target OK (http $_http_code)"
+    reply "Routing to $_target: $_fwd_phrase"
+    pushover_notify "Skill -> $_target" "$_fwd_phrase on $_target" 0 "claude://code/"
+  else
+    log "ERROR: forward to $_target failed (HTTP $_http_code)"
+    reply "ERROR: forward to $_target failed (HTTP $_http_code)"
+    pushover_notify "Skill router: $_target forward failed" "HTTP $_http_code forwarding '$_fwd_phrase' to $_target" 0
+  fi
+  exit 0
+fi
+
 if [ -z "$phrase_norm" ]; then
   [ "$MATCH_ONLY" -eq 1 ] && exit 1
   available="$(printf '%s, ' "${CMD_NAMES[@]}" | sed 's/, $//')"
