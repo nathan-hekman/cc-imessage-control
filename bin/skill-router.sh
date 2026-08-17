@@ -440,6 +440,12 @@ fi
 
 log "Launching: $launch_cmd"
 
+# See claude-router.sh: answer the first-run trust prompt before the terminal
+# opens, or an unattended session sits on it forever.
+"$PROJECT_DIR/bin/pretrust_project.sh" "$project_dir" 2>&1 | while read -r line; do
+  log "$line"
+done
+
 launch_macos() {
   # Launch the skill session in a native Terminal.app window — one visible
   # window per session, nothing hidden inside a multiplexer. See

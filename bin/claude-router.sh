@@ -557,6 +557,14 @@ launch_linux() {
   return 1
 }
 
+# Answer Claude Code's first-run trust prompt before the terminal opens. Nobody
+# is at the keyboard for a remote launch, so an unanswered prompt is a session
+# that never boots and never reaches the phone. Best-effort: a failure here just
+# restores the old behaviour.
+"$PROJECT_DIR/bin/pretrust_project.sh" "$path" 2>&1 | while read -r line; do
+  log "$line"
+done
+
 case "$PLATFORM" in
   Darwin)
     launch_macos
