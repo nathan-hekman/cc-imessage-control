@@ -7,6 +7,9 @@
 #   PROJECTS_ROOT_EXTRA    — optional comma-separated extra dirs, each scanned
 #                            one level deep. Useful if you keep some projects
 #                            in a nested folder (e.g. "$HOME/Documents/Other Projects").
+#   PROJECTS_EXTRA         — optional comma-separated project dirs added as-is
+#                            (not scanned). For a lone project outside any
+#                            root, e.g. "$HOME/yolo-mode".
 #   PROJECTS_EXCLUDE       — optional comma-separated subdir names to skip
 #                            (matches basename, exact). Dotfiles always skipped.
 
@@ -15,6 +18,7 @@ set -uo pipefail
 PROJECTS_ROOT="${PROJECTS_ROOT:-$HOME/Documents}"
 PROJECTS_ROOT_EXTRA="${PROJECTS_ROOT_EXTRA:-}"
 PROJECTS_EXCLUDE="${PROJECTS_EXCLUDE:-}"
+PROJECTS_EXTRA="${PROJECTS_EXTRA:-}"
 
 excluded() {
   local name="$1"
@@ -76,6 +80,15 @@ scan_root() {
       extra="${extra/#\~/$HOME}"
       scan_root "$extra"
       emit_root "$extra"
+    done
+  fi
+
+  if [ -n "$PROJECTS_EXTRA" ]; then
+    IFS=',' read -r -a singles <<< "$PROJECTS_EXTRA"
+    for one in "${singles[@]}"; do
+      one="${one## }"; one="${one%% }"
+      one="${one/#\~/$HOME}"
+      emit_root "$one"
     done
   fi
 } | awk -F'|' '!seen[$1]++'
