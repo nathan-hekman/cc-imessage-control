@@ -75,7 +75,7 @@ SEND="$PROJECT_DIR/bin/imessage_send.sh"
 PLATFORM="$(uname)"
 
 # Model + reasoning effort for every remote-spawned session. The current
-# Opus at "low" effort with permission prompts skipped by default. The alias
+# Opus at "medium" effort with permission prompts skipped by default. The alias
 # `opus` is deliberate — a pinned id (this was `claude-opus-4-8`) keeps
 # spawning last year's model long after the alias has moved on, and matches
 # what claude-router.sh already defaults to. Override by setting
@@ -83,7 +83,7 @@ PLATFORM="$(uname)"
 # into the launch command string below — they MUST be baked into the
 # command, not exported, because the new Terminal/tmux shell does not
 # inherit this process's env.
-CC_LAUNCH_FLAGS="${CC_LAUNCH_FLAGS:-"--model opus --effort low --dangerously-skip-permissions"}"
+CC_LAUNCH_FLAGS="${CC_LAUNCH_FLAGS:-"--model opus --effort medium --dangerously-skip-permissions"}"
 
 # reply <msg> — send an iMessage back on macOS; no-op elsewhere.
 #

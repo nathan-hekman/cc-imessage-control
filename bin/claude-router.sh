@@ -86,7 +86,7 @@ PLATFORM="$(uname)"
 # CC_LAUNCH_FLAGS is built dynamically after token extraction (below).
 # Set CC_LAUNCH_FLAGS in ~/.claude/.cc-remote-env to override all per-message
 # parsing and force a fleet-wide model+effort for every launched session.
-# Default: --model opus --effort low (overridable per-message via tokens).
+# Default: --model opus --effort medium (overridable per-message via tokens).
 # These flags are word-split into the launch command — baked in, not exported,
 # because the new Terminal/tmux shell does not inherit this process's env.
 
@@ -318,7 +318,7 @@ fi
 # Supported tokens (case-insensitive), with fuzzy synonyms so a natural
 # sentence works, not only exact keywords:
 #   Model:   opus sonnet haiku fable   (+ fast→haiku, smart/best→opus)  default opus
-#   Effort:  max high low normal                                        default high
+#   Effort:  max high medium low normal                                 default medium
 #   Machine: n8server (+ n8s prod production)  → run on n8server
 #            n8bot    (+ bot andi andrea)      → run on n8bot
 #
@@ -333,13 +333,13 @@ fi
 # collide with the scrape-server project. Only the tokens listed above route.
 #
 # Examples:
-#   "scrape server"              → project=scrape-server, opus/high, on n8server (default)
-#   "scrape server n8bot"        → project=scrape-server, opus/high, on n8bot
+#   "scrape server"              → project=scrape-server, opus/medium, on n8server (default)
+#   "scrape server n8bot"        → project=scrape-server, opus/medium, on n8bot
 #   "documents n8bot"            → ~/Documents, on n8bot
 #   "courtyard on the bot fast"  → cy-scraper-new, haiku, on n8bot
 #   "ebay sonnet"                → project=ebay-scrape-new, sonnet, on n8server
 _model="${CC_LAUNCH_MODEL:-opus}"
-_effort="${CC_LAUNCH_EFFORT:-low}"
+_effort="${CC_LAUNCH_EFFORT:-medium}"
 
 _self_host=$(printf '%s' "${CC_MACHINE_PREFIX:-$(hostname -s)}" | tr '[:upper:]' '[:lower:]')
 # Default target Mac when no machine token is present. n8server is the
@@ -354,7 +354,7 @@ for _word in $phrase; do
     fast)                         _model="haiku" ;;
     smart|best)                   _model="opus" ;;
     max)                          _effort="max" ;;
-    high|low|normal)              _effort="$_word_l" ;;
+    high|medium|low|normal)       _effort="$_word_l" ;;
     n8server|n8s|prod|production) _target="n8server" ;;
     n8bot|bot|andi|andrea)        _target="n8bot" ;;
     *) _project_phrase="$_project_phrase $_word" ;;
