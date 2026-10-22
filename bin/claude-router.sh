@@ -478,6 +478,18 @@ fi
 _machine="${CC_MACHINE_PREFIX:-$(hostname -s)}"
 slug="${_machine}-${match}-$(date +%Y%m%d-%H%M%S)"
 
+# Logged-out guard. A logged-out claude still opens a window, so the launch
+# "succeeds" and the push says "Session started" while the session never
+# reaches the phone. On 2026-10-21 n8bot's login expired and three launches
+# reported success that way. Warn loudly but still launch: a false "logged
+# out" from a locked keychain must never block a real session.
+_auth_bin=$(command -v claude 2>/dev/null || true)
+if [ -n "$_auth_bin" ] && "$_auth_bin" auth status 2>/dev/null \
+    | grep -q '"loggedIn": *false'; then
+  log "WARNING: claude on $_machine reports loggedIn=false; session will not reach the phone"
+  pushover_notify "Claude on $_machine is logged out" "The session will open but cannot connect. Run 'claude auth login' on $_machine." 1
+fi
+
 # Launch the Claude session in a native Terminal.app window.
 #
 # WHY: every iMessage-triggered session opens as a normal Terminal.app window
